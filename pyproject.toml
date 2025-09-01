@@ -1,0 +1,65 @@
+############################
+# --- Package Settings --- #
+############################
+
+[project]
+name = "patent_art"
+description = "My package description"
+authors = [{ name = "<your name>", email = "some-email@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+"altair",
+"duckdb",
+"fastapi", 
+"httpx",
+"numpy<2",
+"openai",
+"python-multipart", "pydantic-settings",
+"loguru",
+"google-cloud-bigquery-storage",
+"google-auth",
+"google-auth-oauthlib",
+"google-auth-httplib2",
+"db-dtypes",
+"matplotlib",
+"pandas",
+"pandas-gbq",
+"python-dotenv",
+"pyarrow",
+"psycopg2",
+"psycopg2-binary",
+"plotly",
+"requests",
+"streamlit",
+"sentence-transformers",
+"tiktoken",
+]
+classifiers = ["Programming Language :: Python :: 3"]
+keywords = ["one", "two"]
+
+# version will be derived dynamically from version.txt via setuptools
+dynamic = ["version"]
+
+[tool.poetry]
+name = "pybites_blog"
+package-mode = false
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+streamlit = "^1.33.0"
+altair = "^5.5.0"
+pandas = "^2.3.1"
+plotly = "^6.3.0"
+loguru = "^0.7.3"
+psycopg2-binary = "^2.9.10"
+
+
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
