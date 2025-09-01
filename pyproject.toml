@@ -11,8 +11,6 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
 "altair",
-"fastapi", 
-"httpx",
 "numpy<2",
 "python-multipart", "pydantic-settings",
 "loguru",
