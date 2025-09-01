@@ -587,7 +587,6 @@ def main():
         
         # Load and display summary metrics
         summary_df = load_summary_data()
-        print(summary_df.head())
         
         if not summary_df.empty:
             # Update metrics based on your styled column names
