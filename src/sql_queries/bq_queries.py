@@ -1,11 +1,12 @@
 """Contains various BigQuery sql queries"""
 import os
 import pandas as pd
-from dotenv import load_dotenv
-load_dotenv()
+import streamlit as st
+# from dotenv import load_dotenv
+# load_dotenv()
 
-project_id = os.getenv("project_id")
-dataset_id = os.getenv("dataset_id")
+# project_id = os.getenv("project_id") or st.secrets["google"]["project_id"]
+# dataset_id = os.getenv("dataset_id") or st.secrets["google"]["dataset_id"]
 
 
 # Exploratory analysis queries
