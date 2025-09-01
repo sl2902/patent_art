@@ -11,11 +11,9 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
 "altair",
-"duckdb",
 "fastapi", 
 "httpx",
 "numpy<2",
-"openai",
 "python-multipart", "pydantic-settings",
 "loguru",
 "google-cloud-bigquery-storage",
@@ -28,13 +26,9 @@ dependencies = [
 "pandas-gbq",
 "python-dotenv",
 "pyarrow",
-"psycopg2",
-"psycopg2-binary",
 "plotly",
-"requests",
 "streamlit",
 "sentence-transformers",
-"tiktoken",
 ]
 classifiers = ["Programming Language :: Python :: 3"]
 keywords = ["one", "two"]
@@ -56,7 +50,6 @@ altair = "^5.5.0"
 pandas = "^2.3.1"
 plotly = "^6.3.0"
 loguru = "^0.7.3"
-psycopg2-binary = "^2.9.10"
 
 
 [build-system]
