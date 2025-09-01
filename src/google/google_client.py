@@ -24,14 +24,17 @@ class GoogleClient:
                 self.credentials_path,
                 scopes=['https://www.googleapis.com/auth/bigquery',
                        'https://www.googleapis.com/auth/cloud-platform']
-            )
+        )
 
-        return service_account.Credentials.from_service_account_info(
-                            st.secrets["gcp_service_account"]
-            )
+        else:
+            credentials = service_account.Credentials.from_service_account_info(
+                st.secrets["gcp_service_account"],
+                scopes=["https://www.googleapis.com/auth/bigquery",
+                "https://www.googleapis.com/auth/cloud-platform"]
+        )
         
         # used if env variable is set
-        # return bigquery.Client(project=self.project_id)
+        return bigquery.Client(project=self.project_id, credentials=credentials)
     
     def query_to_dataframe(self, query: str, **kwargs) -> pd.DataFrame:
         """Execute BigQuery query and return Pandas DataFrame"""
