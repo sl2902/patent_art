@@ -15,6 +15,10 @@ class GoogleClient:
     def __init__(self, project_id: str, credentials_path: Optional[str] = None):
         self.project_id = project_id
         self.credentials_path = credentials_path or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if not self.credentials_path:
+            self.credentials_path = service_account.Credentials.from_service_account_info(
+                                st.secrets["gcp_service_account"]
+            )
         self._client = self._initialize_client()
     
     def _initialize_client(self) -> bigquery.Client:
