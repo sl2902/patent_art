@@ -542,10 +542,21 @@ vector_search_query = """
             base.abstract_en,
             base.pub_date,
             distance,
-            ROUND((1 - distance), 4) as similarity_score
+            ROUND((1 - distance), 4) as cosine_score
             
             FROM VECTOR_SEARCH(
-                TABLE `{project_id}.{dataset_id}.{table_name}`,
+                    (
+                    SELECT
+                        publication_number,
+                        country_code,
+                        title_en,
+                        abstract_en,
+                        pub_date,
+                        text_embedding
+                    FROM `{project_id}.{dataset_id}.{table_name}`
+                    WHERE 1=1
+                    {filter_clause}
+                    ),
                 'text_embedding',
                 TABLE query_embedding,
                 'embedding',
