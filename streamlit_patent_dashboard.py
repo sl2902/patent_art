@@ -9,7 +9,7 @@ import numpy as np
 from generate_patent_analysis import (
     dataset_size_table, country_wise_breakdown, top_country_each_month,
     yoy_lang_growth_rate, yoy_country_growth_rate, citations_top_countries,
-    top_cpc, tech_area_cpc, patent_flow
+    top_cpc, tech_area_cpc, tech_convergence, patent_flow
 )
 
 st.set_page_config(
@@ -105,6 +105,15 @@ def load_tech_area_data(top_n=10):
         return tech_area_cpc(top_n)
     except Exception as e:
         st.error(f"Error loading tech area data: {e}")
+        return pd.DataFrame()
+
+@st.cache_data
+def load_tech_convergence_data(top_n=5):
+    """Load technology convergence anlaysis data"""
+    try:
+        return tech_convergence(top_n)
+    except Exception as e:
+        st.error(f"Error loading tech convergence data: {e}")
         return pd.DataFrame()
 
 @st.cache_data
@@ -310,10 +319,10 @@ def create_yoy_growth_chart(df):
     fig = go.Figure()
     
     # Single line trace
-    filtered_df = df[df['year'] != 2025].sort_values('year')
+    df = df.sort_values('year')
     fig.add_trace(go.Scatter(
-        x=filtered_df['year'],
-        y=filtered_df['yoy_growth'],
+        x=df['year'],
+        y=df['yoy_growth'],
         mode='lines+markers',
         line=dict(width=3, color='#2E8B57'),
         marker=dict(size=8, color='#2E8B57'),
@@ -327,6 +336,16 @@ def create_yoy_growth_chart(df):
         line_dash="dash",
         line_color="gray",
         opacity=0.6
+    )
+
+    # Add CAGR line
+    cagr = df["cagr"].max()
+    fig.add_hline(
+        y=cagr,
+        line_dash="dot",
+        line_color="red",
+        annotation_text=f"CAGR: {cagr:.1f}%",
+        annotation_position="top right"
     )
     
     # Layout
@@ -384,29 +403,38 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
         return None
     
     # Determine the y-axis column
-    y_col = "main_class" if "main_class" in df.columns else df.columns[0]
+    y_col = "cpc_code" if "cpc_code" in df.columns else df.columns[1]
     x_col = column_name if column_name in df.columns else df.columns[1]
     
     fig = px.bar(
-        df.head(5),
+        df,
         x=x_col,
         y=y_col,
         text=x_col,
-        title=f"{title_prefix} by Share",
-        labels={y_col: "Classification", x_col: "Share %"},
+        # title=f"{title_prefix} by Share",
+        labels={y_col: "Classification", x_col: "Share %"} if title_prefix != "Technology Convergence" else {y_col: "Classification", x_col: "Avg # of Patents"},
         color_discrete_sequence=["#1f77b4"],
         orientation="h"
     )
     
-    fig.update_traces(
-        texttemplate='%{text:.2f}%', 
-        textposition='outside',
-        marker=dict(
-            color='#1f77b4',
-            opacity=0.8,
-            line=dict(width=0)
-        )
+    if title_prefix == "Technology Convergence":
+        fig.update_traces(
+            marker=dict(
+                color='#1f77b4',
+                opacity=0.8,
+                line=dict(width=0)
+            )
     )
+    else:
+        fig.update_traces(
+            texttemplate='%{text:.2f}%', 
+            textposition='outside',
+            marker=dict(
+                color='#1f77b4',
+                opacity=0.8,
+                line=dict(width=0)
+            )
+        )
     
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
@@ -419,7 +447,7 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
             autorange='reversed'
         ),
         xaxis=dict(
-            title="Percentage",
+            title="Percentage" if title_prefix != "Technology Convergence" else "Avg # of Patents",
             showgrid=False,
             zeroline=False
         ),
@@ -678,8 +706,9 @@ def main():
         
         cpc_df = load_cpc_data()
         tech_area_df = load_tech_area_data()
+        tech_convergence_df = load_tech_convergence_data()
         
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         # Top CPCs analysis
         if not cpc_df.empty:
@@ -736,6 +765,16 @@ def main():
                         )
                         st.plotly_chart(fig_tech_alt, width=True)
         
+        # Technology convergence analysis
+        if not tech_convergence_df.empty:
+            with col3:
+                st.subheader("Technology Convergence")
+                fig_tech = create_cpc_bar_chart(tech_convergence_df, column_name="avg_recent_patents", title_prefix="Technology Convergence")
+                if fig_tech:
+                    st.plotly_chart(fig_tech, width=True)
+                    st.write("**Note** - Only the first letter from the CPC code was picked for this analysis")
+
+        
         # Detailed tables
         tab3_col1, tab3_col2 = st.columns(2)
         
@@ -769,11 +808,11 @@ def main():
                 # Key trend metrics
                 if 'yoy_growth' in trends_df.columns:
                     latest_growth = trends_df['yoy_growth'].iloc[-1]
-                    avg_growth = trends_df['yoy_growth'].mean()
+                    cagr = trends_df['cagr'].max()
                     
                     st.subheader("Growth Metrics")
                     st.metric("Latest Growth Rate", f"{latest_growth:.1f}%")
-                    st.metric("Average Growth Rate", f"{avg_growth:.1f}%")
+                    st.metric("CAGR", f"{cagr:.1f}%")
         
         # Multi-country trends
         if not country_trends_df.empty:
