@@ -1,6 +1,6 @@
 """"Google Client Class"""
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import pandas as pd
@@ -36,10 +36,18 @@ class GoogleClient:
         # used if env variable is set
         return bigquery.Client(project=self.project_id, credentials=credentials)
     
-    def query_to_dataframe(self, query: str, **kwargs) -> pd.DataFrame:
+    def execute_query(self, query: str) -> None:
+        """Execute DDL queries"""
+        try:
+            self._client.query(query)
+        except Exception as err:
+            logger.error(f"BigQuery DDL {query} execution failed {err}")
+            raise
+    
+    def query_to_dataframe(self, query: str, job_config: Optional[Sequence[str]] = None, **kwargs) -> pd.DataFrame:
         """Execute BigQuery query and return Pandas DataFrame"""
         try:
-            df = self._client.query(query).to_dataframe(**kwargs)
+            df = self._client.query(query, job_config=job_config).to_dataframe(**kwargs)
         except Exception as err:
             logger.error(f"BigQuery {query} execution failed {err}")
             raise
