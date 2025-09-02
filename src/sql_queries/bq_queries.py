@@ -105,19 +105,30 @@ top_country_each_month = """
 
 """Year on Year English-language publications growth rate"""
 yoy_eng_lang_publications_gr = """
-        WITH base_year AS (
+ WITH yoy AS (
         SELECT
             EXTRACT(year FROM pub_date) as year,
             COUNT(*) pub_count
         FROM `{project_id}.{dataset_id}.{publication_table}`
+        WHERE EXTRACT(year FROM pub_date) < EXTRACT(YEAR FROM CURRENT_TIMESTAMP())
         GROUP BY year
-        )
+        ), compute_cagr AS (
+        SELECT
+            POW(
+                SAFE_DIVIDE(MAX_BY(pub_count, year), MIN_BY(pub_count, year)),
+                1.0 / (MAX(year) - MIN(year))
+        ) - 1 AS cagr
+        FROM yoy
+        ) 
         SELECT
         year,
         pub_count,
-        ROUND( 100 * (pub_count / lag(pub_count) over(order by year) - 1), 2) as yoy_growth
-        FROM base_year
+        ROUND( 100 * (pub_count / lag(pub_count) over(order by year) - 1), 2) as yoy_growth,
+        ROUND(100 * cagr, 2) as cagr
+        FROM yoy, compute_cagr
         ORDER BY year
+
+
 """
 
 """Year on Year growth rate of top 10 countries"""
@@ -267,6 +278,43 @@ patent_flow = """
         publication_cpc_count
         FROM year_section
         ORDER BY year, publication_cpc_count DESC
+"""
+
+# Technology convergence
+tech_convergence = """
+            -- Fetch the first letter to keep it simpler
+            WITH cpc_combinations AS (
+                SELECT
+                    EXTRACT(YEAR FROM pub_date) as year,
+                    ARRAY_TO_STRING(ARRAY(
+                        SELECT DISTINCT SUBSTR(cpc, 1, 1) as cpc_class
+                        FROM UNNEST(cpc_codes) as cpc
+                        ORDER BY cpc_class
+                    ), ',') as cpc_combo,
+                    COUNT(*) patent_count
+                FROM `{project_id}.{dataset_id}.{publication_table}`
+                WHERE ARRAY_LENGTH(cpc_codes) >= 2
+                GROUP BY year, cpc_combo
+                HAVING patent_count >= 100 -- High threshold
+            )
+            SELECT 
+            cpc_combo,
+            CASE cpc_combo
+                WHEN 'G,H' THEN 'Physics + Electricity'
+                WHEN 'G,Y' THEN 'Physics + Emerging Tech'
+                WHEN 'H,Y' THEN 'Electricity + Emerging Tech'
+                WHEN 'A,C' THEN 'Human Needs + Chemistry'
+                WHEN 'B,G' THEN 'Transport + Physics'
+                ELSE 'Other' END cpc_combo_label,
+            ROUND(AVG(patent_count)) as avg_recent_patents,
+            MAX(patent_count) as peak_patents,
+            COUNT(DISTINCT year) as years_with_data
+            FROM cpc_combinations  
+            -- WHERE year >= 2020
+            WHERE ARRAY_LENGTH(SPLIT(cpc_combo, ',')) >= 2  -- Filter for actual combinations
+            GROUP BY cpc_combo
+            ORDER BY avg_recent_patents DESC
+            LIMIT {top_n}
 """
 
 # For Embedding extraction
