@@ -1,16 +1,12 @@
-"""Contains various BigQuery sql queries"""
+"""Contains various BigQuery sql queries used for Data analysis, patents embedding, indexing, querying and search"""
 import os
 import pandas as pd
 import streamlit as st
-# from dotenv import load_dotenv
-# load_dotenv()
-
-# project_id = os.getenv("project_id") or st.secrets["google"]["project_id"]
-# dataset_id = os.getenv("dataset_id") or st.secrets["google"]["dataset_id"]
 
 
 # Exploratory analysis queries
-"""Dataset size"""
+
+# Dataset size
 dataset_size_qry = """
         SELECT 
         COUNT(*) as total_patents,
@@ -28,7 +24,7 @@ dataset_size_qry = """
         FROM `{project_id}.{dataset_id}.{publication_table}`
 """
 
-"""Country-wise breakdown of patent publications"""
+# Country-wise breakdown of patent publications
 country_wise_publications = """SELECT 
         country_code,
         COUNT(*) as total_publications,
@@ -51,7 +47,7 @@ country_wise_publications = """SELECT
         LIMIT {top_n}
 """
 
-"""Top country each month"""
+# Top country each month
 top_country_each_month = """
         WITH year_month AS (
         SELECT
@@ -103,7 +99,7 @@ top_country_each_month = """
         a.month_date
 """
 
-"""Year on Year English-language publications growth rate"""
+# Year on Year English-language publications growth rate
 yoy_eng_lang_publications_gr = """
  WITH yoy AS (
         SELECT
@@ -131,7 +127,7 @@ yoy_eng_lang_publications_gr = """
 
 """
 
-"""Year on Year growth rate of top 10 countries"""
+# Year on Year growth rate of top 10 countries
 yoy_top_n_countries = """
         WITH top_10_countries AS (
         SELECT
@@ -165,7 +161,7 @@ yoy_top_n_countries = """
         year
 """
 
-"""Citation pattern by top countries"""
+# Citation pattern by top countries
 citation_top_n_countries = """
         SELECT
         country_code,
@@ -186,7 +182,7 @@ citation_top_n_countries = """
         LIMIT {top_n}
 """
 
-"""Top n CPCs"""
+# Top n CPCs (Corporate Patent Code)
 top_n_cpc = """
     WITH cpc_unnested AS (
         SELECT 
@@ -208,7 +204,7 @@ top_n_cpc = """
     LIMIT {top_n}
 """
 
-"""Technology area analysis by main CPC classes"""
+# Technology area analysis by main CPC classes
 tech_area_cpc_class = """
         WITH cpc_main_classes AS (
         SELECT 
@@ -244,7 +240,7 @@ tech_area_cpc_class = """
         ORDER BY total_patents DESC;
 """
 
-"""Patent publication flow"""
+# Patent publication flow
 patent_flow = """
         WITH year_section AS (
         SELECT
@@ -317,8 +313,7 @@ tech_convergence = """
             LIMIT {top_n}
 """
 
-# For Embedding extraction
-"""Fetch patents for a given date range"""
+# Fetch patents for a given date range"""
 extract_qry = """
     SELECT
         publication_number,
@@ -327,7 +322,7 @@ extract_qry = """
         title_en,
         abstract_en,
         CONCAT(COALESCE(title_en, ''), ' ', COALESCE(abstract_en, '')) as combined_text
-    FROM `{project_id}.{dataset_id}.patents_2017_2025_en`
+    FROM `{project_id}.{dataset_id}.{table_name}`
     WHERE pub_date BETWEEN '{start_date}' AND '{end_date}'
         AND LENGTH(title_en) >= 30
         AND LENGTH(abstract_en) >= 100
@@ -335,7 +330,7 @@ extract_qry = """
 """
 
 create_embedding_ddl = """
-    CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.{table_name}`
+    CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.{embeddings_table}`
     (
         publication_number STRING,
         country_code STRING,
@@ -346,5 +341,223 @@ create_embedding_ddl = """
         text_embedding ARRAY<FLOAT64>
     )
     PARTITION BY DATE_TRUNC(pub_date, MONTH)
-    CLUSTER BY country_code, publication_number
+    CLUSTER BY publication_number, country_code
+    OPTIONS(
+        description = "Core patent embeddings without CPC codes - optimized for semantic search performance"
+    )
+"""
+
+create_vector_index = """
+    CREATE VECTOR INDEX IF NOT EXISTS `{project_id}.{dataset_id}.{vector_index}`
+        ON `{project_id}.{dataset_id}.{embedding_table_name}`({embedding_column})
+        OPTIONS(
+            index_type = 'IVF',
+            distance_type = 'COSINE',
+            ivf_options = '{{"num_lists": 100}}'
+)
+"""
+
+# Tracks count of embeding batches loaded so far
+track_embedding_count = """
+    SELECT
+        COUNT(*) as processed_count
+    FROM `{project_id}.{dataset_id}.{table_name}`
+    WHERE pub_date BETWEEN '{start_date}' AND '{end_date}'
+"""
+
+# Store procedure to loading embeddings into BQ using ML.GenerateEmbeddings()
+
+creat_embedding_model_bq = """
+        CREATE OR REPLACE MODEL `{project_id}.{dataset_id}.{embedding_model}`
+        REMOTE WITH CONNECTION `{project_id}.{region}.{connection_id}`
+        OPTIONS (
+        ENDPOINT = 'text-embedding-005'
+        )
+"""
+
+create_logs_ddl = """
+    CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.{table_name}`
+    (
+        log_timestamp TIMESTAMP,
+        batch_number INT64,
+        batch_start INT64,
+        batch_end INT64,
+        records_processed INT64,
+        processing_duration_seconds INT64,
+        status STRING
+    )
+    PARTITION BY DATE(log_timestamp)
+    CLUSTER BY batch_number;
+"""
+
+# Store procedure using BigQyery's ML.GENERATE_EMBEDDING()
+proc_load_embeddings_bq = """
+    CREATE OR REPLACE PROCEDURE `{project_id}.{dataset_id}.{embedding_proc}`
+    (
+        source_table STRING,
+        start_date STRING,
+        end_date STRING,
+        batch_size INT64
+    )
+    BEGIN
+        DECLARE total_rows INT64;
+        DECLARE num_batches INT64;
+        DECLARE batch_start INT64 DEFAULT 1;
+        DECLARE batch_end INT64;
+        DECLARE current_batch INT64 DEFAULT 1;
+        DECLARE batch_start_time TIMESTAMP;
+        DECLARE batch_end_time TIMESTAMP;
+        DECLARE proc_start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP();
+    
+    INSERT INTO `{project_id}.{dataset_id}.{logs_table}`
+    VALUES (CURRENT_TIMESTAMP(), 0, 0, 0, 0, 0, 'PROCEDURE_STARTED');
+
+    EXECUTE IMMEDIATE FORMAT('''
+        CREATE OR REPLACE TEMP TABLE filtered_patents AS
+        SELECT
+            publication_number,
+            country_code,
+            SAFE.PARSE_DATE('%%Y%%m%%d', CAST(publication_date AS STRING)) AS pub_date,
+            title_en,
+            abstract_en,
+            CONCAT(COALESCE(title_en, ''), ' ', COALESCE(abstract_en, '')) AS combined_text
+        FROM `%s.%s.%s`
+        WHERE pub_date BETWEEN '%s' AND '%s'
+            AND title_en IS NOT NULL
+            AND abstract_en IS NOT NULL
+            AND LENGTH(title_en) >= 30
+            AND LENGTH(abstract_en) >= 100
+        ''', '{project_id}', '{dataset_id}', source_table, start_date, end_date
+        );
+        
+    CREATE OR REPLACE TEMP TABLE numbered_patents AS
+    SELECT
+        *,
+        ROW_NUMBER() OVER(ORDER BY publication_number) AS rn
+    FROM filtered_patents;
+
+    SET total_rows = (SELECT COUNT(*) FROM numbered_patents);
+    SET num_batches = CAST(CEIL(total_rows / batch_size) AS INT64);
+
+    INSERT INTO `{project_id}.{dataset_id}.{logs_table}`
+    VALUES (CURRENT_TIMESTAMP(), -1, 0, 0, total_rows, 0, 
+        FORMAT('FOUND_%d_RECORDS_%d_BATCHES', total_rows, num_batches));
+    
+    WHILE current_batch <= num_batches DO
+        SET batch_start_time = CURRENT_TIMESTAMP();
+        SET batch_start = (current_batch - 1) * batch_size + 1;
+        SET batch_end = LEAST(current_batch * batch_size, total_rows);
+
+        INSERT INTO `{project_id}.{dataset_id}.{embedding_table_name}`
+        (publication_number, country_code, pub_date, title_en, abstract_en, combined_text, text_embedding)
+
+        WITH batch_data AS (
+            SELECT
+                publication_number,
+                country_code,
+                pub_date,
+                title_en,
+                abstract_en,
+                combined_text as content
+            FROM numbered_patents
+            WHERE rn BETWEEN batch_start AND batch_end
+        ),
+        batch_embeddings AS (
+            SELECT
+                t.publication_number,
+                t.country_code,
+                t.pub_date,
+                t.title_en,
+                t.abstract_en,
+                t.content as combined_text,
+                t.ml_generate_embedding_result as text_embedding
+            FROM ML.GENERATE_EMBEDDING(
+                MODEL `{project_id}.{dataset_id}.text_embedding_model`,
+                TABLE batch_data,
+                STRUCT(TRUE AS flatten_json_output)
+            ) AS t
+        )
+        SELECT * FROM batch_embeddings;
+
+        SET batch_end_time = CURRENT_TIMESTAMP();
+        
+        INSERT INTO `{project_id}.{dataset_id}.{logs_table}`
+        VALUES (
+            CURRENT_TIMESTAMP(), 
+            current_batch, 
+            batch_start, 
+            batch_end,
+            batch_end - batch_start + 1,
+            TIMESTAMP_DIFF(batch_end_time, batch_start_time, SECOND),
+            FORMAT('BATCH_%d_OF_%d_COMPLETED', current_batch, num_batches)
+        );
+
+        SET current_batch = current_batch + 1;
+    END WHILE;
+    
+    INSERT INTO `{project_id}.{dataset_id}.{logs_table}`
+    VALUES (
+        CURRENT_TIMESTAMP(), 
+        999999,
+        0, 
+        0,
+        total_rows,
+        TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), proc_start_time, SECOND),
+        'PROCEDURE_COMPLETED'
+    );
+END;    
+"""
+
+# Compute the average embeddings for a list of patents
+query_patents_embedding_avgs = """
+            WITH unnested AS (
+                SELECT
+                    pos,
+                    val
+                FROM `{project_id}.{dataset_id}.{table_name}`,
+                UNNEST(text_embedding) AS val WITH OFFSET pos
+                WHERE publication_number IN UNNEST(@patent_numbers)
+                ),
+                averaged AS (
+                SELECT
+                    pos,
+                    AVG(val) AS avg_val
+                FROM unnested
+                GROUP BY pos
+                )
+                SELECT
+                ARRAY_AGG(avg_val ORDER BY pos) AS avg_embedding
+                FROM averaged;
+            """
+
+# Perform vector search for given query 
+vector_search_query = """
+            WITH query_embedding AS (
+                SELECT @query_embeddings AS embedding
+            )
+            SELECT 
+            base.publication_number,
+            base.country_code,
+            base.title_en,
+            base.abstract_en,
+            base.pub_date,
+            distance,
+            ROUND((1 - distance), 4) as similarity_score
+            
+            FROM VECTOR_SEARCH(
+                TABLE `{project_id}.{dataset_id}.{table_name}`,
+                'text_embedding',
+                TABLE query_embedding,
+                'embedding',
+                distance_type => 'COSINE',
+                top_k => {top_k}
+            )
+            ORDER BY distance
+        """
+
+# Test semantic search with a list of patents
+test_patents_query = """
+    SELECT publication_number, title_en, abstract_en, CONCAT(title_en, " ", abstract_en) as combined_text
+    FROM `{project_id}.{dataset_id}.{table_name}` 
+    WHERE publication_number in ('TW-M650298-U', 'CN-117475991-A', 'CN-113053411-B');
 """
