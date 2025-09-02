@@ -132,5 +132,18 @@ def patent_flow():
     logger.info("Running query for Patent publication flow")
     return client.query_to_dataframe(qry)
 
+def tech_convergence(top_n: int = 5):
+    """Technology Convergence popularity - Bar chart"""
+    qry = bq_queries.tech_convergence
+    qry = qry.format(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        publication_table=publication_table,
+        top_n=top_n,
+    )
+    
+    logger.info("Running query for Technology convergence analyis by CPC main class")
+    return client.query_to_dataframe(qry)
+
 # if __name__ == "__main__":
 #     logger.info(dataset_size_table())
