@@ -6,7 +6,8 @@ import pandas_gbq
 from typing import Any, Dict, List, Optional
 from loguru import logger
 from src.sql_queries import bq_queries
-from src.google import google_client
+# from src.google import google_client
+from src.patent_search.semantic_search import PatentSemanticSearch
 import torch
 from sentence_transformers import SentenceTransformer
 import gc
@@ -16,105 +17,44 @@ load_dotenv()
 
 project_id = os.getenv("project_id")
 dataset_id = os.getenv("dataset_id")
-
-client = google_client.GoogleClient(
-        project_id=os.getenv("project_id"),
-        credentials_path=os.getenv("service_account_path")
-    )
+credentials_path = os.getenv("service_account_path")
 
 
-def extract_patents(start_date: str, end_date: str) -> pd.DataFrame:
+# client = google_client.GoogleClient(
+#         project_id=os.getenv("project_id"),
+#         credentials_path=os.getenv("service_account_path")
+#     )
+
+pss_client = PatentSemanticSearch(
+    project_id=project_id,
+    dataset_id=dataset_id,
+    credentials_path=credentials_path
+)
+
+
+def extract_patents(source_table: str, start_date: str, end_date: str) -> pd.DataFrame:
     """Fetch patents for a given date range"""
     qry = bq_queries.extract_qry
     qry = qry.format(
         project_id=project_id,
         dataset_id=dataset_id,
+        table_name=source_table,
         start_date=start_date,
         end_date=end_date)
     
-    return client.query_to_dataframe(qry)
+    return pss_client.client.query_to_dataframe(qry)
 
 
-def create_embedding_table(table_name: str = "patent_embeddings_local"):
-    """Create embedding table for patents"""
-    qry = bq_queries.create_embedding_ddl
-    qry = qry.format(
+def get_processed_count(table_name: str, start_date: str, end_date: str) -> int:
+    """Keeps track of how many batches were processed"""
+    get_processed_qry = bq_queries.track_embedding_count.format(
         project_id=project_id,
         dataset_id=dataset_id,
-        table_name=table_name
+        table_name=table_name,
+        start_date=start_date,
+        end_date=end_date
     )
-
-    try:
-        client._client.query(qry)
-    except Exception as err:
-        logger.error(f"Create table {table_name} failed {err}")
-        raise
-
-    print(f"Created table: {table_name}")
-
-def upload_to_bq(
-        df: pd.DataFrame, 
-        table_name: str, 
-        chunk_size: int, 
-        if_exists: str="replace"
-    ) -> None:
-    """Upload the patent embeddings DataFrame to BigQuery"""
-    # upload_df = df[['publication_number', 'country_code', 'pub_date', 
-    #                    'title_en', 'abstract_en', 'combined_text', 'text_embedding']]
-    
-    try:
-        # df.to_gbq(
-        # table_name,
-        # if_exists=if_exists,
-        # chunksize=chunk_size
-        # )
-        pandas_gbq.to_gbq(
-            df,
-            table_name,
-            project_id=project_id,
-            # chunksize=chunk_size,
-            if_exists=if_exists
-        )
-    except Exception as err:
-        logger.error(f"Upload to BigQuery for {table_name} failed {err}")
-        raise
-
-def generate_local_embeddings_in_batches(
-    model:  SentenceTransformer,
-    df_patents: pd.DataFrame,
-    num_batches: int,
-    device: str = "cpu",
-    embedding_batch_size: int = 1024,
-    batch_num: int = 0,
-    chunk_size: int = 1024,
-):
-    """Generate embeddings in batches to avoid out of memory errors"""
-    embeddings = model.encode(
-            df_patents["combined_text"].tolist(),
-            batch_size=embedding_batch_size,
-            show_progress_bar=True,
-            normalize_embeddings=True,
-        )
-    df_batch_with_embeddings = df_patents.copy()
-    df_batch_with_embeddings["text_embedding"] = embeddings.tolist()
-
-    table_name = f'{project_id}.{dataset_id}.patent_embeddings_local'
-    client.upload_dataframe(df_batch_with_embeddings, table_name, chunk_size)
-
-    del embeddings, df_batch_with_embeddings
-    torch.cuda.empty_cache()
-    _ = gc.collect()
-    logger.info(f"Completed batch {batch_num + 1} of {num_batches}")
-
-def get_processed_count(start_date: str, end_date: str) -> int:
-    """Keeps track of how many batches were processed"""
-    qry = f"""
-        SELECT
-            COUNT(*) as processed_count
-        FROM `{project_id}.{dataset_id}.patent_embeddings_local`
-        WHERE pub_date BETWEEN '{start_date}' AND '{end_date}'
-    """
-    result = client.query_to_dataframe(qry)
+    result = pss_client.client.query_to_dataframe(get_processed_qry)
     return result["processed_count"].iloc[0]
 
 def run_embedding_pipeline(
@@ -125,14 +65,27 @@ def run_embedding_pipeline(
         device: str
     ):
 
+    source_table = 'patents_2017_2025_en'
+    embedding_table = 'patents_embedding_local'
+    vector_index = 'patent_semantic_index'
+    embedding_col_name = 'text_embedding'
+
+    logger.info(f"Create embedding table {embedding_table}")
+    pss_client.create_embeddings_table(embedding_table)
+
+    logger.info(f"Create BigQuery vector index {vector_index} on field {embedding_col_name}")
+    pss_client.create_vector_index(vector_index, embedding_table, embedding_col_name)
+
     logger.info("Fetching processed count from embedding table")
-    num_processed = get_processed_count(start_date, end_date)
+    track_processing_count_table = 'patent_embeddings_local'
+
+    num_processed = get_processed_count(track_processing_count_table, start_date, end_date)
     logger.info(f"Number of rows processed {num_processed}")
     start_index = num_processed
     batch_size = batch_size
 
     logger.info(f"Fetch patents from {start_date} to {end_date}")
-    df = extract_patents(start_date, end_date)
+    df = extract_patents(source_table, start_date, end_date)
     logger.info(f"Number of patents fetched {df.shape[0]}")
     num_batches = len(df) // batch_size
 
@@ -141,7 +94,14 @@ def run_embedding_pipeline(
     logger.info("Starting embedding generation using sentence transformer")
     for i in range(start_index, num_batches, batch_size):
         batch = df[i: i + batch_size]
-        generate_local_embeddings_in_batches(model_id, batch, num_batches, device=device, batch_num = i // batch_size)
+        pss_client.generate_local_batch_embeddings(
+            model_id, 
+            embedding_table,
+            batch, 
+            num_batches, 
+            device=device, 
+            batch_num = i // batch_size
+        )
 
 if __name__ == "__main__":
 
