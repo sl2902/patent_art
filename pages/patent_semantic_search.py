@@ -4,8 +4,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date, datetime
 from typing import Any, List, Optional
+from loguru import logger
 import numpy as np
-from run_patent_search_pipeline import run_semantic_search_pipeline
+from run_patent_search_pipeline import (
+    sanitize_input_query,
+    run_semantic_search_pipeline,
+    technology_selection
+)
 
 COUNTRY_LIST = ['US', 'KR', 'WO', 'EP', 'RU', 'CN', 'CA', 'JP', 'TW', 'AU']
 TECH_AREAS = ['All', 'Human Necessities', 'Operations & Transport', 
@@ -62,7 +67,9 @@ with st.sidebar:
         query_text = st.text_area(
             "Describe the technology:",
             placeholder="e.g., solar panel efficiency improvement, machine learning algorithms",
-            height=100
+            height=100,
+            value= st.session_state.get('search_query', ''),
+            key="semantic_search_query_box"
         )
         query_patents = None
         
@@ -72,7 +79,7 @@ with st.sidebar:
             placeholder="US1234567\nEP9876543\nCN555666",
             height=100
         )
-        query_patents = patent_numbers_input.split('\n') if patent_numbers_input and "\n" in patent_numbers_input else None
+        query_patents = patent_numbers_input.strip().split('\n') if patent_numbers_input and "\n" in patent_numbers_input else None
         query_text = None
         
     # else:  # Hybrid
@@ -120,6 +127,19 @@ with st.sidebar:
     # Search button
     search_clicked = st.button("🔍 Search Patents", type="primary", width='content')
 
+# Sanitize query text before passing it through the semantic search pipeline
+if query_text:
+    logger.info("Sanitize the query text before performing semantic search")
+    query_text, is_valid, error_msg = sanitize_input_query(query_text)
+    if not is_valid:
+        st.error(error_msg)
+        search_button_disabled = True
+        search_clicked = st.button("🔍 Search Patents", 
+                    type="primary", 
+                    width='content',
+                    disabled=search_button_disabled
+                )
+
 # Main content area
 if search_clicked and (query_text or query_patents):
     
@@ -163,12 +183,19 @@ if search_clicked and (query_text or query_patents):
     
     # Display results
     if results_df.empty:
-        st.warning("Found no relevant patents. Try relaxing the filter criteria")
-        st.markdown("- Broadening your date range")
-        st.markdown("- Removing country filters") 
-        st.markdown("- Using different search terms")
+        st.warning("Found no relevant patents. Try one or more of the following suggestions")
+        st.markdown("- Check whether patent number is valid or not")
+        st.markdown("- Broaden your date range")
+        st.markdown("- Remove country filters") 
+        st.markdown("- Use different search terms or improve quality of search query")
     else:
-        st.success(f"Found {len(results_df)} relevant patents")
+        msg = "patents" if len(results_df) > 1 else "patent"
+        if results_df["cosine_score"].max() < 0.5:
+            st.error(f"Found {len(results_df)} low quality {msg}. Consider improving search query")
+        elif results_df["cosine_score"].max() >= 0.5 and results_df["cosine_score"].max() < 0.65:
+            st.warning(f"Found {len(results_df)} moderate quality {msg}. Tweak search query for excellent results")
+        else:
+            st.success(f"Found {len(results_df)} relevant {msg}")
     
         # Create tabs for different views
         tab1, tab2, tab3, tab4 = st.tabs(["📋 Results", "📊 Analytics", "🗺️ Geographic", "🕒 Timeline"])
@@ -334,19 +361,52 @@ if search_clicked and (query_text or query_patents):
 else:
     # Welcome screen
     st.info("👈 Configure your search in the sidebar and click 'Search Patents' to get started!")
+
+    st.subheader("Examples to experiment with both options")
+
+    if st.button("Reset Form"):
+        # Clear session state
+        for key in ['search_query', 'semantic_search_query_box', 'selectbox_key']:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.session_state['selectbox_key'] = "Select Technology"
+        st.rerun()
+
+    col1, col2 = st.columns(2)
     
-    # Show some example queries
-    st.subheader("Example Queries")
-    examples = [
-        "solar panel efficiency improvement",
-        "machine learning optimization algorithms", 
-        "quantum computing error correction",
-        "battery energy storage systems",
-        "autonomous vehicle navigation"
-    ]
+    with col1:
+        # Show some example queries
+        st.subheader("Example Queries")
+        examples = [
+            "solar panel efficiency improvement",
+            "machine learning optimization algorithms", 
+            "quantum computing error correction",
+            "battery energy storage systems",
+            "autonomous vehicle navigation"
+        ]
+        
+        for example in examples:
+            if st.button(f"Try: '{example}'", key=f"example_{example}"):
+                st.session_state['search_query'] = example
+                # st.code(example, language="text")
+                st.rerun()
     
-    for example in examples:
-        if st.button(f"Try: '{example}'", key=f"example_{example}"):
-            # st.session_state.example_query = example
-            st.code(example, language="text")
-            # st.rerun()
+    with col2:
+        tech_categories = technology_selection()
+        st.subheader("Example Patents from BigQuery")
+        selected_category = st.selectbox(
+            "Explore by technology area:",
+            ["Select Technology"] + list(tech_categories.keys()),
+            placeholder="Select",
+            key="selectbox_key",
+        )
+        if selected_category and selected_category != "Select Technology":
+            category_info = tech_categories[selected_category]
+            st.markdown(f"**{category_info['description']}**")
+            st.markdown("Try these example searches:")
+            cols = st.columns(len(category_info['sample_queries']))
+            for i, query in enumerate(category_info['sample_queries']):
+                with cols[i]:
+                    if st.button(f"'{query}'", key=f"sample_{i}"):
+                        st.session_state['search_query'] = query
+                        st.rerun()
