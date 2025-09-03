@@ -3,8 +3,15 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date, datetime
+from typing import Any, List, Optional
 import numpy as np
 from run_patent_search_pipeline import run_semantic_search_pipeline
+
+COUNTRY_LIST = ['US', 'KR', 'WO', 'EP', 'RU', 'CN', 'CA', 'JP', 'TW', 'AU']
+TECH_AREAS = ['All', 'Human Necessities', 'Operations & Transport', 
+                      'Chemistry & Metallurgy', 'Textiles', 'Construction',
+                      'Mechanical Engineering', 'Physics', 'Electricity',
+                      'Emerging Technologies']
 
 # Configure page
 st.set_page_config(page_title="Patent Semantic Search", layout="wide")
@@ -12,6 +19,33 @@ st.set_page_config(page_title="Patent Semantic Search", layout="wide")
 # Title and description
 st.title("🔍 Patent Semantic Search & Discovery")
 st.markdown("Discover patents through semantic similarity with explainable results")
+
+@st.cache_data
+def call_semantic_search_pipeline(
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        query_text: Optional[str] = None,
+        patent_ids: Optional[List[str]] = None,
+        countries: Optional[List[str]] = None,
+        top_k: Optional[int] = 1
+) -> pd.DataFrame:
+    return run_semantic_search_pipeline(
+            start_date,
+            end_date,
+            query_text=query_text,
+            patent_ids=query_patents,
+            countries=selected_countries,
+            top_k=top_k
+        )
+    
+def format_best_explanation(explanations_list: List[str]):
+    if not explanations_list:
+        return "No explanation available"
+    
+    best = explanations_list[0]  # Highest similarity
+    sentence = best['sentence'][:80] + "..." if len(best['sentence']) > 80 else best['sentence']
+    
+    return f"\"{sentence}\" (similarity: {best['similarity']:.3f})"
 
 # Sidebar for search options
 with st.sidebar:
@@ -49,17 +83,39 @@ with st.sidebar:
     
     st.subheader("Filters")
     
-    available_countries = ["US", "CN", "JP", "DE", "KR", "GB", "FR", "TW", "EP", "WO"]
-    selected_countries = st.multiselect("Countries:", available_countries)
+
+    available_countries = ["All"] + COUNTRY_LIST
+    use_country_filter = st.selectbox("Country filtering:", ["All countries", "Select specific"])
+
+    if use_country_filter == "Select specific":
+        selected_countries = st.multiselect("Countries:", COUNTRY_LIST)
+    else:
+        selected_countries = None
     
     # Date range
     col1, col2 = st.columns(2)
+    MIN_DATE = date(2024, 1, 1)
+    MAX_DATE = date(2024, 6, 30)
+
+    col1, col2 = st.columns(2)
     with col1:
-        start_date = str(st.date_input("From:", value=date(2024, 1, 1)))
+        start_date = str(st.date_input(
+            "From:", 
+            value=MIN_DATE,
+            min_value=MIN_DATE,
+            max_value=MAX_DATE
+        ))
     with col2:
-        end_date = str(st.date_input("To:", value=date(2024, 6, 30)))
+        end_date = str(st.date_input(
+            "To:", 
+            value=MAX_DATE,
+            min_value=start_date,
+            max_value=MAX_DATE
+        ))
 
     top_k = st.slider("Max results:", 1, 5, 1)
+
+    st.info(f"📅 Patent embeddings available: {MIN_DATE.strftime('%B %Y')} - {MAX_DATE.strftime('%B %Y')}")
     
     # Search button
     search_clicked = st.button("🔍 Search Patents", type="primary", width='content')
@@ -69,14 +125,15 @@ if search_clicked and (query_text or query_patents):
     
     # Mock search function call (replace with your actual function)
     with st.spinner("Searching patents and generating explanations..."):
-        results_df = run_semantic_search_pipeline(
+        results_df = call_semantic_search_pipeline(
             start_date,
             end_date,
-            query_text=query_text,
-            patent_ids=query_patents,
-            countries=selected_countries,
-            top_k=top_k
+            query_text,
+            query_patents,
+            selected_countries,
+            top_k
         )
+        
         
         # Mock data for visualization demo
         # results_df = pd.DataFrame({
@@ -136,7 +193,13 @@ if search_clicked and (query_text or query_patents):
                         st.write(row.abstract_en)
                     
                     # Explanation
-                    st.info(f"🧠 **Why this matched:** {row.explanation}")
+                    st.info(f"🧠 **Primary Match:** {format_best_explanation(row.explanation)}")
+                    with st.expander("View all explanations"):
+                        for i, exp in enumerate(row.explanation, 1):
+                            st.write(f"**{i}.** {exp['sentence']}")
+                            st.caption(f"Similarity: {exp['similarity']:.3f}")
+                            st.divider()
+                            
                     
                     st.divider()
         
