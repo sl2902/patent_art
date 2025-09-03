@@ -151,7 +151,11 @@ class PatentSemanticSearch:
                                     ]
                                 ))
             query_embedding = result['avg_embedding'][0].tolist()
-            logger.info(f"Computed the average embedding vectors for list of patents")
+            logger.info(f"Computed the average embedding vectors for list of patents - {query_patent_numbers}")
+            avg_embedding = result["avg_embedding"][0]
+            if not avg_embedding or len(avg_embedding) == 0:
+                logger.warning(f"Semantic search via `query_patent_numbers {query_patent_numbers} returned no results")
+                return pd.DataFrame()
 
         logger.info(f"Embedding dimension vector length - {len(query_embedding)}")
 
