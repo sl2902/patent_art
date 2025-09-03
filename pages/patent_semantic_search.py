@@ -73,7 +73,9 @@ if search_clicked and (query_text or query_patents):
             start_date,
             end_date,
             query_text=query_text,
-            patent_ids=query_patents
+            patent_ids=query_patents,
+            countries=selected_countries,
+            top_k=top_k
         )
         
         # Mock data for visualization demo
@@ -103,161 +105,168 @@ if search_clicked and (query_text or query_patents):
         # })
     
     # Display results
-    st.success(f"Found {len(results_df)} relevant patents")
+    if results_df.empty:
+        st.warning("Found no relevant patents. Try relaxing the filter criteria")
+        st.markdown("- Broadening your date range")
+        st.markdown("- Removing country filters") 
+        st.markdown("- Using different search terms")
+    else:
+        st.success(f"Found {len(results_df)} relevant patents")
     
-    # Create tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 Results", "📊 Analytics", "🗺️ Geographic", "🕒 Timeline"])
-    
-    with tab1:
-        st.subheader("Search Results with Explanations")
+        # Create tabs for different views
+        tab1, tab2, tab3, tab4 = st.tabs(["📋 Results", "📊 Analytics", "🗺️ Geographic", "🕒 Timeline"])
         
-        for row in results_df.itertuples(index=False):
-            with st.container():
-                # Header with score
-                col1, col2, col3 = st.columns([3, 1, 1])
-                with col1:
-                    st.markdown(f"**{row.title_en}**")
-                with col2:
-                    st.metric("Similarity", f"{row.similarity_score:.3f}")
-                with col3:
-                    st.markdown(f"**{row.country_code}** | {row.pub_date}")
-                
-                # Abstract preview
-                st.markdown(f"**Patent:** {row.publication_number}")
-                with st.expander("Read abstract"):
-                    st.write(row.abstract_en)
-                
-                # Explanation
-                st.info(f"🧠 **Why this matched:** {row.explanation}")
-                
-                st.divider()
-    
-    with tab2:
-        st.subheader("Search Analytics")
+        with tab1:
+            st.subheader("Search Results with Explanations")
+            
+            for row in results_df.itertuples(index=False):
+                with st.container():
+                    # Header with score
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    with col1:
+                        st.markdown(f"**{row.title_en}**")
+                    with col2:
+                        st.metric("Document similarity", f"{row.cosine_score:.3f}")
+                    with col3:
+                        st.markdown(f"**{row.country_code}** | {row.pub_date}")
+                    
+                    # Abstract preview
+                    st.markdown(f"**Patent:** {row.publication_number}")
+                    with st.expander("Read abstract"):
+                        st.write(row.abstract_en)
+                    
+                    # Explanation
+                    st.info(f"🧠 **Why this matched:** {row.explanation}")
+                    
+                    st.divider()
         
-        col1, col2 = st.columns(2)
+        with tab2:
+            st.subheader("Search Analytics")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Similarity score distribution
+                fig_hist = px.histogram(
+                    results_df, 
+                    x='cosine_score', 
+                    title="Similarity Score Distribution",
+                    labels={'cosine_score': 'Cosine Similarity', 'count': 'Number of Patents'}
+                )
+                fig_hist.update_layout(showlegend=False)
+                st.plotly_chart(fig_hist, use_container_width=True)
+            
+            with col2:
+                # Country breakdown
+                country_counts = results_df['country_code'].value_counts()
+                fig_pie = px.pie(
+                    values=country_counts.values, 
+                    names=country_counts.index,
+                    title="Results by Country"
+                )
+                st.plotly_chart(fig_pie, use_container_width=True)
         
-        with col1:
-            # Similarity score distribution
-            fig_hist = px.histogram(
-                results_df, 
-                x='similarity_score', 
-                title="Similarity Score Distribution",
-                labels={'similarity_score': 'Cosine Similarity', 'count': 'Number of Patents'}
+        with tab3:
+            st.subheader("Geographic Distribution")
+            
+            # Country mapping for visualization
+            country_data = results_df.groupby('country_code').agg({
+                'cosine_score': ['mean', 'count']
+            }).round(3)
+            country_data.columns = ['avg_similarity', 'patent_count']
+            country_data = country_data.reset_index()
+            
+            st.dataframe(
+                country_data,
+                column_config={
+                    'country_code': 'Country',
+                    'avg_similarity': st.column_config.NumberColumn('Avg Similarity', format="%.3f"),
+                    'patent_count': st.column_config.NumberColumn('Patent Count', format="%d")
+                }
             )
-            fig_hist.update_layout(showlegend=False)
-            st.plotly_chart(fig_hist, use_container_width=True)
-        
-        with col2:
-            # Country breakdown
-            country_counts = results_df['country_code'].value_counts()
-            fig_pie = px.pie(
-                values=country_counts.values, 
-                names=country_counts.index,
-                title="Results by Country"
+            
+            # Scatter plot: country vs similarity
+            fig_scatter = px.scatter(
+                results_df,
+                x='country_code',
+                y='cosine_score', 
+                size=[1]*len(results_df),  # Uniform size
+                title="Similarity Scores by Country",
+                labels={'cosine_score': 'Cosine Similarity', 'country_code': 'Country'}
             )
-            st.plotly_chart(fig_pie, use_container_width=True)
-    
-    with tab3:
-        st.subheader("Geographic Distribution")
+            st.plotly_chart(fig_scatter, use_container_width=True)
         
-        # Country mapping for visualization
-        country_data = results_df.groupby('country_code').agg({
-            'similarity_score': ['mean', 'count']
-        }).round(3)
-        country_data.columns = ['avg_similarity', 'patent_count']
-        country_data = country_data.reset_index()
-        
-        st.dataframe(
-            country_data,
-            column_config={
-                'country_code': 'Country',
-                'avg_similarity': st.column_config.NumberColumn('Avg Similarity', format="%.3f"),
-                'patent_count': st.column_config.NumberColumn('Patent Count', format="%d")
-            }
-        )
-        
-        # Scatter plot: country vs similarity
-        fig_scatter = px.scatter(
-            results_df,
-            x='country_code',
-            y='similarity_score', 
-            size=[1]*len(results_df),  # Uniform size
-            title="Similarity Scores by Country",
-            labels={'similarity_score': 'Cosine Similarity', 'country_code': 'Country'}
-        )
-        st.plotly_chart(fig_scatter, use_container_width=True)
-    
-    with tab4:
-        st.subheader("Timeline View")
-        
-        # Convert dates for plotting
-        results_df['pub_date'] = pd.to_datetime(results_df['pub_date'])
-        
-        # Timeline scatter plot
-        fig_timeline = px.scatter(
-            results_df,
-            x='pub_date',
-            y='similarity_score',
-            color='country_code',
-            size=[20]*len(results_df),  # Uniform size
-            hover_data=['title_en', 'publication_number'],
-            title="Patent Similarity Over Time",
-            labels={'pub_date': 'Publication Date', 'cosine_score': 'Cosine Similarity'}
-        )
-        fig_timeline.update_layout(height=500)
-        st.plotly_chart(fig_timeline, use_container_width=True)
-        
-        # Monthly aggregation
-        results_df['month'] = results_df['pub_date'].dt.to_period('M')
-        monthly_stats = results_df.groupby('month').agg({
-            'similarity_score': ['mean', 'count']
-        }).round(3)
-        monthly_stats.columns = ['avg_similarity', 'count']
-        monthly_stats = monthly_stats.reset_index()
-        monthly_stats['month'] = monthly_stats['month'].astype(str)
-        
-        fig_monthly = go.Figure()
-        fig_monthly.add_trace(go.Scatter(
-            x=monthly_stats['month'],
-            y=monthly_stats['avg_similarity'],
-            mode='lines+markers',
-            name='Avg Similarity',
-            line=dict(color='blue')
-        ))
-        
-        fig_monthly.add_trace(go.Scatter(
-            x=monthly_stats['month'],
-            y=monthly_stats['count']/max(monthly_stats['count']),  # Normalize for dual axis
-            mode='lines+markers',
-            name='Patent Count (normalized)',
-            line=dict(color='red', dash='dash'),
-            yaxis='y2'
-        ))
-        
-        fig_monthly.update_layout(
-            title="Monthly Trends",
-            xaxis_title="Month",
-            yaxis=dict(title="Average Similarity", side="left"),
-            yaxis2=dict(title="Patent Count", side="right", overlaying="y"),
-            height=400
-        )
-        
-        st.plotly_chart(fig_monthly, use_container_width=True)
+        with tab4:
+            st.subheader("Timeline View")
+            
+            # Convert dates for plotting
+            results_df['pub_date'] = pd.to_datetime(results_df['pub_date'])
+            
+            # Timeline scatter plot
+            fig_timeline = px.scatter(
+                results_df,
+                x='pub_date',
+                y='cosine_score',
+                color='country_code',
+                size=[20]*len(results_df),  # Uniform size
+                hover_data=['title_en', 'publication_number'],
+                title="Patent Similarity Over Time",
+                labels={'pub_date': 'Publication Date', 'cosine_score': 'Cosine Similarity'}
+            )
+            fig_timeline.update_layout(height=500)
+            st.plotly_chart(fig_timeline, use_container_width=True)
+            
+            # Monthly aggregation
+            results_df['month'] = results_df['pub_date'].dt.to_period('M')
+            monthly_stats = results_df.groupby('month').agg({
+                'cosine_score': ['mean', 'count']
+            }).round(3)
+            monthly_stats.columns = ['avg_similarity', 'count']
+            monthly_stats = monthly_stats.reset_index()
+            monthly_stats['month'] = monthly_stats['month'].astype(str)
+            
+            fig_monthly = go.Figure()
+            fig_monthly.add_trace(go.Scatter(
+                x=monthly_stats['month'],
+                y=monthly_stats['avg_similarity'],
+                mode='lines+markers',
+                name='Avg Similarity',
+                line=dict(color='blue')
+            ))
+            
+            fig_monthly.add_trace(go.Scatter(
+                x=monthly_stats['month'],
+                y=monthly_stats['count']/max(monthly_stats['count']),  # Normalize for dual axis
+                mode='lines+markers',
+                name='Patent Count (normalized)',
+                line=dict(color='red', dash='dash'),
+                yaxis='y2'
+            ))
+            
+            fig_monthly.update_layout(
+                title="Monthly Trends",
+                xaxis_title="Month",
+                yaxis=dict(title="Average Similarity", side="left"),
+                yaxis2=dict(title="Patent Count", side="right", overlaying="y"),
+                height=400
+            )
+            
+            st.plotly_chart(fig_monthly, use_container_width=True)
 
 # Summary metrics at the bottom
-if search_clicked and (query_text or query_patents):
-    st.subheader("Search Summary")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Results", len(results_df))
-    with col2:
-        st.metric("Avg Similarity", f"{results_df['similarity_score'].mean():.3f}")
-    with col3:
-        st.metric("Top Score", f"{results_df['similarity_score'].max():.3f}")
-    with col4:
-        st.metric("Countries", len(results_df['country_code'].unique()))
+if search_clicked and (query_text or query_patents):   
+
+    if not results_df.empty:
+        st.subheader("Search Summary")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Results", len(results_df))
+        with col2:
+            st.metric("Avg Similarity", f"{results_df['cosine_score'].mean():.3f}")
+        with col3:
+            st.metric("Top Score", f"{results_df['cosine_score'].max():.3f}")
+        with col4:
+            st.metric("Countries", len(results_df['country_code'].unique()))
 
 else:
     # Welcome screen
@@ -275,5 +284,6 @@ else:
     
     for example in examples:
         if st.button(f"Try: '{example}'", key=f"example_{example}"):
-            st.session_state.example_query = example
-            st.rerun()
+            # st.session_state.example_query = example
+            st.code(example, language="text")
+            # st.rerun()
