@@ -1,6 +1,7 @@
 """"Google Client Class"""
 import os
 from typing import Any, Dict, List, Optional, Sequence
+import google
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import pandas as pd
@@ -48,6 +49,9 @@ class GoogleClient:
         """Execute BigQuery query and return Pandas DataFrame"""
         try:
             df = self._client.query(query, job_config=job_config).to_dataframe(**kwargs)
+        except google.api_core.exceptions.BadRequest as err:
+            if 'query_patent_numbers' in err:
+                return None
         except Exception as err:
             logger.error(f"BigQuery {query} execution failed {err}")
             raise
