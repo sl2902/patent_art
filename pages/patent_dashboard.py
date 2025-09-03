@@ -587,12 +587,28 @@ def main():
         
         # Date range filter
         st.subheader("Date Range")
-        start_date = st.date_input("Start Date", date(2017, 1, 1))
-        end_date = st.date_input("End Date", date(2025, 1, 1))
+        MIN_DATE = date(2017, 1, 1)
+        MAX_DATE = date(2024, 12, 31)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = str(st.date_input(
+                "From:", 
+                value=MIN_DATE,
+                min_value=MIN_DATE,
+                max_value=MAX_DATE
+            ))
+        with col2:
+            end_date = str(st.date_input(
+                "To:", 
+                value=MAX_DATE,
+                min_value=start_date,
+                max_value=MAX_DATE
+            ))
         
         # Country filter
         st.subheader("Countries")
-        all_countries = ['CN', 'US', 'JP', 'KR', 'DE', 'EP', 'WO', 'GB', 'FR', 'CA']
+        all_countries = ['US', 'KR', 'WO', 'EP', 'RU', 'CN', 'CA', 'JP', 'TW', 'AU']
         selected_countries = st.multiselect(
             "Select Countries", 
             all_countries, 
@@ -601,7 +617,10 @@ def main():
         
         # Technology filter
         st.subheader("Technology Areas")
-        tech_areas = ['All', 'AI/ML', 'Biotech', 'Clean Energy', 'Electronics', 'Materials']
+        tech_areas = ['All', 'Human Necessities', 'Operations & Transport', 
+                      'Chemistry & Metallurgy', 'Textiles', 'Construction',
+                      'Mechanical Engineering', 'Physics', 'Electricity',
+                      'Emerging Technologies']
         selected_tech = st.selectbox("Technology Focus", tech_areas)
         
     # Main content tabs
