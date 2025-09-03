@@ -158,15 +158,15 @@ class PatentSemanticSearch:
         filters = []
         params = [bigquery.ArrayQueryParameter("query_embeddings", "FLOAT64", query_embedding)]
 
-        if countries:
-            filters.append("country_code IN UNNEST(@countries)")
-            params.append(bigquery.ArrayQueryParameter("countries", "STRING", countries))
         if date_start:
             filters.append("pub_date >= @date_start")
             params.append(bigquery.ScalarQueryParameter("date_start", "STRING", date_start))
         if date_end:
             filters.append("pub_date <= @date_end")
             params.append(bigquery.ScalarQueryParameter("date_end", "STRING", date_end))
+        if countries:
+            filters.append("country_code IN UNNEST(@countries)")
+            params.append(bigquery.ArrayQueryParameter("countries", "STRING", countries))
 
         filter_clause = " AND ".join(filters)
         if filter_clause:
@@ -180,8 +180,10 @@ class PatentSemanticSearch:
             project_id=self.project_id,
             dataset_id=self.dataset_id,
             table_name=table_name,
-            top_k=top_k
+            top_k=top_k,
+            filter_clause=filter_clause
         )
+        logger.info(query)
 
         params.append(bigquery.ScalarQueryParameter("top_k", "INT64", top_k))
         job_config = bigquery.QueryJobConfig(query_parameters=params)
@@ -248,12 +250,12 @@ class PatentSemanticSearch:
                 row.abstract_en,
                 threshold=0.3,
             )
-            if sentence_explanations:
-                # Highest similarity sentence
-                best_match = sentence_explanations[0]
-                explanation = f"Most relevant: \"{best_match['sentence'][:100]}...\" (similarity: {best_match['similarity']:.3f})"
-            else:
-                explanation = "Low semantic overlap found"
+            # if sentence_explanations:
+            #     # Highest similarity sentence
+            #     best_match = sentence_explanations[0]
+            #     explanation = f"Most relevant: \"{best_match['sentence'][:100]}...\" (similarity: {best_match['similarity']:.3f})"
+            # else:
+            #     explanation = "Low semantic overlap found"
             explanations.append(sentence_explanations)
         
         candidate_df = candidate_df.copy()
