@@ -52,8 +52,9 @@ def run_semantic_search_pipeline(
         end_date: str, 
         query_text: str = None,
         patent_ids: List[str] = None,
+        countries: List[str] = None,
         top_k: int = 1
-    ):
+    ) -> Optional[pd.DataFrame]:
 
     model_name = "all-MiniLM-L6-v2"
     model = SentenceTransformer(model_name)
@@ -66,6 +67,7 @@ def run_semantic_search_pipeline(
         embedding_table_name,
         query_text=query_text,
         query_patent_numbers=patent_ids,
+        countries=countries,
         date_start=start_date,
         date_end=end_date,
         top_k=top_k
@@ -81,14 +83,23 @@ def run_semantic_search_pipeline(
         logger.info("Running explainability for user text query")
 
     logger.info("Running explainability steps")
-    semantic_matches = pss_client.semantic_search_with_explanability(
-        model, 
-        candidate_df,
-        query_text=query_text,
-        query_patents=patent_ids
-    )
+    if not candidate_df.empty:
+        semantic_matches = pss_client.semantic_search_with_explanability(
+            model, 
+            candidate_df,
+            query_text=query_text,
+            query_patents=patent_ids
+        )
+        return semantic_matches
+    else:
+        if patent_ids:
+            logger.warning(f"Semantic search did not return any candidate results for query patents - {patent_ids}")
+        else:
+            logger.warning(f"Semantic search did not return any candidate results for query text - {query_text}")
+    
+    return pd.DataFrame()
+                         
     # pd.set_option("display.max_colwidth", None)
-    return semantic_matches
 
 if __name__ == "__main__":
     # test patents
