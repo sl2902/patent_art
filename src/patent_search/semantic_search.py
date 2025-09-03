@@ -167,6 +167,9 @@ class PatentSemanticSearch:
         if countries:
             filters.append("country_code IN UNNEST(@countries)")
             params.append(bigquery.ArrayQueryParameter("countries", "STRING", countries))
+        if query_patent_numbers:
+            filters.append("publication_number NOT IN UNNEST(@query_patent_numbers)")
+            params.append(bigquery.ScalarQueryParameter("publication_number", "STRING", query_patent_numbers))
 
         filter_clause = " AND ".join(filters)
         if filter_clause:
