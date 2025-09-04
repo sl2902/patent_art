@@ -566,9 +566,21 @@ vector_search_query = """
             ORDER BY distance
         """
 
-# Test semantic search with a list of patents
-test_patents_query = """
-    SELECT publication_number, title_en, abstract_en, CONCAT(title_en, " ", abstract_en) as combined_text
+# Fetch random sample of patents using cpc_code subclass
+patent_random_sample = """
+            SELECT
+            publication_number,
+            title_en
+            FROM `{project_id}.{dataset_id}.{table_name}` TABLESAMPLE SYSTEM (.05 PERCENT)
+            WHERE cpc_code LIKE '{cpc_code}%'
+            GROUP BY publication_number, title_en
+            LIMIT {top_k}
+"""
+
+# Return a list of patents
+patents_query = """
+    SELECT publication_number, title_en, abstract_en, CONCAT(title_en, " ", abstract_en) AS combined_text
     FROM `{project_id}.{dataset_id}.{table_name}` 
-    WHERE publication_number in ('TW-M650298-U', 'CN-117475991-A', 'CN-113053411-B');
+    WHERE  1=1
+    {filter_clause};
 """
