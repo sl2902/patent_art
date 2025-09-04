@@ -152,8 +152,8 @@ class PatentSemanticSearch:
                                 ))
             query_embedding = result['avg_embedding'][0].tolist()
             logger.info(f"Computed the average embedding vectors for list of patents - {query_patent_numbers}")
-            avg_embedding = result["avg_embedding"][0]
-            if not avg_embedding or len(avg_embedding) == 0:
+            avg_embedding = result["avg_embedding"].iloc[0]
+            if len(avg_embedding) == 0:
                 logger.warning(f"Semantic search via `query_patent_numbers {query_patent_numbers} returned no results")
                 return pd.DataFrame()
 
@@ -173,7 +173,7 @@ class PatentSemanticSearch:
             params.append(bigquery.ArrayQueryParameter("countries", "STRING", countries))
         if query_patent_numbers:
             filters.append("publication_number NOT IN UNNEST(@query_patent_numbers)")
-            params.append(bigquery.ScalarQueryParameter("publication_number", "STRING", query_patent_numbers))
+            params.append(bigquery.ArrayQueryParameter("query_patent_numbers", "STRING", query_patent_numbers))
 
         filter_clause = " AND ".join(filters)
         if filter_clause:
@@ -189,8 +189,8 @@ class PatentSemanticSearch:
             table_name=table_name,
             top_k=top_k,
             filter_clause=filter_clause
-        )
-
+        )     
+        logger.info(query)   
         params.append(bigquery.ScalarQueryParameter("top_k", "INT64", top_k))
         job_config = bigquery.QueryJobConfig(query_parameters=params)
         logger.info("Computing cosine similarity with BigQuery vector search")
