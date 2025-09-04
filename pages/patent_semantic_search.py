@@ -507,13 +507,7 @@ else:
                                         if patent_num not in st.session_state['selected_patents']:
                                             st.session_state['selected_patents'].append(patent_num)
                                         st.rerun()
-                                # button_key = f"select_{patent_num}_{i}"
-                                # if st.button("Select", key=button_key):
-                                #     if patent_num not in st.session_state['selected_patents']:
-                                #         st.session_state['selected_patents'].append(patent_num)
-                                #     # Force a rerun to update the text area immediately
-                                #     st.rerun()
-                    
+                                        
                     if reset_clicked:
                         for key in ['search_query', 'semantic_search_query_box', 'selectbox_key', 'patent_numbers_input', 'selected_patents']:
                             if key in st.session_state:
