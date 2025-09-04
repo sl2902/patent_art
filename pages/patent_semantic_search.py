@@ -3,13 +3,15 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date, datetime
+import random
 from typing import Any, List, Optional
 from loguru import logger
 import numpy as np
 from run_patent_search_pipeline import (
     sanitize_input_query,
     run_semantic_search_pipeline,
-    technology_selection
+    technology_selection,
+    generate_random_patents
 )
 
 COUNTRY_LIST = ['US', 'KR', 'WO', 'EP', 'RU', 'CN', 'CA', 'JP', 'TW', 'AU']
@@ -17,6 +19,7 @@ TECH_AREAS = ['All', 'Human Necessities', 'Operations & Transport',
                       'Chemistry & Metallurgy', 'Textiles', 'Construction',
                       'Mechanical Engineering', 'Physics', 'Electricity',
                       'Emerging Technologies']
+PATENTS_TABLE_NAME = "patents_cpc_flat"
 
 # Configure page
 st.set_page_config(page_title="Patent Semantic Search", layout="wide")
@@ -38,10 +41,22 @@ def call_semantic_search_pipeline(
             start_date,
             end_date,
             query_text=query_text,
-            patent_ids=query_patents,
-            countries=selected_countries,
+            patent_ids=patent_ids,
+            countries=countries,
             top_k=top_k
         )
+
+@st.cache_data
+def generate_random_patent_numbers(
+    src_table_name: str,
+    cpc_code: str,
+    top_k: int = 3
+) -> pd.DataFrame:
+    return generate_random_patents(
+        src_table_name,
+        cpc_code,
+        top_k
+    )
     
 def format_best_explanation(explanations_list: List[str]):
     if not explanations_list:
@@ -51,6 +66,10 @@ def format_best_explanation(explanations_list: List[str]):
     sentence = best['sentence'][:80] + "..." if len(best['sentence']) > 80 else best['sentence']
     
     return f"\"{sentence}\" (similarity: {best['similarity']:.3f})"
+
+# Initialize session state
+if 'selected_patents' not in st.session_state:
+    st.session_state['selected_patents'] = []
 
 # Sidebar for search options
 with st.sidebar:
@@ -74,12 +93,28 @@ with st.sidebar:
         query_patents = None
         
     elif search_method == "Similar Patents":
+        current_patents = st.session_state.get('selected_patents', [])
+        patent_display = '\n'.join(current_patents)
         patent_numbers_input = st.text_area(
             "Patent numbers (one per line):",
             placeholder="US1234567\nEP9876543\nCN555666",
+            value= patent_display,
+            key='patent_numbers_input',
             height=100
         )
-        query_patents = patent_numbers_input.strip().split('\n') if patent_numbers_input and "\n" in patent_numbers_input else None
+        if patent_numbers_input:
+            manual_patents = [p.strip() for p in patent_numbers_input.split("\n") if p.strip()]
+            # Remove duplicates while preserving order
+            unique_patents = []
+            for patent in manual_patents:
+                if patent not in unique_patents:
+                    unique_patents.append(patent)
+            
+            if unique_patents != st.session_state.get('selected_patents', []):
+                st.session_state['selected_patents'] = unique_patents
+            query_patents = unique_patents
+        else:
+            query_patents = None
         query_text = None
         
     # else:  # Hybrid
@@ -123,25 +158,47 @@ with st.sidebar:
     top_k = st.slider("Max results:", 1, 5, 1)
 
     st.info(f"📅 Patent embeddings available: {MIN_DATE.strftime('%B %Y')} - {MAX_DATE.strftime('%B %Y')}")
-    
-    # Search button
-    search_clicked = st.button("🔍 Search Patents", type="primary", width='content')
 
-# Sanitize query text before passing it through the semantic search pipeline
-if query_text:
-    logger.info("Sanitize the query text before performing semantic search")
-    query_text, is_valid, error_msg = sanitize_input_query(query_text)
-    if not is_valid:
-        st.error(error_msg)
-        search_button_disabled = True
-        search_clicked = st.button("🔍 Search Patents", 
-                    type="primary", 
-                    width='content',
-                    disabled=search_button_disabled
-                )
+
+    # Sanitize query text before passing it through the semantic search pipeline
+    search_valid = True
+    validation_error = None
+    if query_text:
+        logger.info("Sanitize the query text before performing semantic search")
+        query_text, is_valid, error_msg = sanitize_input_query(query_text)
+        if not is_valid:
+            validation_error = error_msg
+            search_valid = False
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        search_clicked = st.button(
+            "🔍 Search Patents", 
+            type="primary", 
+            use_container_width=True,
+            disabled=not search_valid
+        )
+    with col2:
+        reset_clicked = st.button("🔄 Reset Form", type="secondary", use_container_width='content')
+    
+
+    if reset_clicked:
+        for key in ['search_query', 'semantic_search_query_box', 'selectbox_key', 'patent_numbers_input', 'selected_patents']:
+            if key in st.session_state:
+                del st.session_state[key]
+
+        selected_category = "Select Technology"
+        st.session_state["selectbox_key"] = selected_category
+        st.session_state['selected_patents'] = []
+        st.rerun()
+
+if validation_error:
+    st.error(validation_error)
+    validation_error = None
 
 # Main content area
-if search_clicked and (query_text or query_patents):
+if search_clicked and (query_text or (query_patents and len(query_patents) > 0)):
     
     # Mock search function call (replace with your actual function)
     with st.spinner("Searching patents and generating explanations..."):
@@ -364,14 +421,6 @@ else:
 
     st.subheader("Examples to experiment with both options")
 
-    if st.button("Reset Form"):
-        # Clear session state
-        for key in ['search_query', 'semantic_search_query_box', 'selectbox_key']:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.session_state['selectbox_key'] = "Select Technology"
-        st.rerun()
-
     col1, col2 = st.columns(2)
     
     with col1:
@@ -385,6 +434,8 @@ else:
             "autonomous vehicle navigation"
         ]
         
+        # selected_category = "Select Technology"
+        # st.session_state["selectbox_key"] = selected_category
         for example in examples:
             if st.button(f"Try: '{example}'", key=f"example_{example}"):
                 st.session_state['search_query'] = example
@@ -397,16 +448,75 @@ else:
         selected_category = st.selectbox(
             "Explore by technology area:",
             ["Select Technology"] + list(tech_categories.keys()),
-            placeholder="Select",
             key="selectbox_key",
         )
+        
         if selected_category and selected_category != "Select Technology":
             category_info = tech_categories[selected_category]
             st.markdown(f"**{category_info['description']}**")
-            st.markdown("Try these example searches:")
-            cols = st.columns(len(category_info['sample_queries']))
-            for i, query in enumerate(category_info['sample_queries']):
-                with cols[i]:
-                    if st.button(f"'{query}'", key=f"sample_{i}"):
-                        st.session_state['search_query'] = query
+            if search_method == "Text Query":
+                st.markdown("Try these example searches:")
+                cols = st.columns(len(category_info['sample_queries']))
+                for i, query in enumerate(category_info['sample_queries']):
+                    with cols[i]:
+                        if st.button(f"'{query}'", key=f"sample_{i}"):
+                            st.session_state['search_query'] = query
+                            st.rerun()
+            elif search_method == "Similar Patents":
+                st.markdown("Try these example patents:")
+                
+                if selected_category and selected_category != "Select Technology":
+                    results_key = f'results_{selected_category.replace(" ", "_")}'
+                    
+                    if results_key not in st.session_state:
+                        chosen_cpc = random.choice(category_info["cpc_codes"])
+                        try:
+                            patents = generate_random_patent_numbers(PATENTS_TABLE_NAME, chosen_cpc)
+                            st.session_state[results_key] = patents
+                        except Exception as e:
+                            st.error(f"Error generating patents: {e}")
+                            st.session_state[results_key] = pd.DataFrame()
+                    
+                    results = st.session_state[results_key]
+                    
+                    if not results.empty:
+                        for i, patent_row in enumerate(results.itertuples(index=False)):
+                            patent_num = patent_row.publication_number.strip("'")
+                            col1, col2 = st.columns([2, 1])
+                            
+                            with col1:
+                                st.write(f"**{patent_num}**")
+                                if len(patent_row.title_en) > 100:
+                                    st.caption(f"{patent_row.title_en[:100]}...")
+                                else:
+                                    st.caption(f"{patent_row.title_en}")
+                            
+                            with col2:
+                                is_selected = patent_num in st.session_state.get('selected_patents', [])
+                    
+                                if is_selected:
+                                    # Show Remove button for selected patents
+                                    remove_key = f"remove_{patent_num}_{i}"
+                                    if st.button("Remove", key=remove_key, type="secondary"):
+                                        st.session_state['selected_patents'].remove(patent_num)
+                                        st.rerun()
+                                else:
+                                    # Show Add button for unselected patents
+                                    add_key = f"add_{patent_num}_{i}"
+                                    if st.button("Add", key=add_key, type="primary"):
+                                        if patent_num not in st.session_state['selected_patents']:
+                                            st.session_state['selected_patents'].append(patent_num)
+                                        st.rerun()
+                                # button_key = f"select_{patent_num}_{i}"
+                                # if st.button("Select", key=button_key):
+                                #     if patent_num not in st.session_state['selected_patents']:
+                                #         st.session_state['selected_patents'].append(patent_num)
+                                #     # Force a rerun to update the text area immediately
+                                #     st.rerun()
+                    
+                    if reset_clicked:
+                        for key in ['search_query', 'semantic_search_query_box', 'selectbox_key', 'patent_numbers_input', 'selected_patents']:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        st.session_state['selected_patents'] = []
                         st.rerun()
