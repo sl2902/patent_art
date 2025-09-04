@@ -7,6 +7,7 @@ import pandas as pd
 import pandas_gbq
 from typing import Any, Dict, List, Tuple, Optional, Union
 from loguru import logger
+from google.cloud import bigquery
 from src.sql_queries import bq_queries
 from src.patent_search.semantic_search import PatentSemanticSearch
 import torch
@@ -30,14 +31,30 @@ pss_client = PatentSemanticSearch(
 
 def run_user_patents_query(table_name: str, patent_ids: Optional[List[str]] = None) -> pd.DataFrame:
     """Run the query for a list of user provided patents"""
-    qry = bq_queries.test_patents_query
+    qry = bq_queries.patents_query
+
+    filters, params = [], []
+    if patent_ids:
+        filters.append("publication_number IN UNNEST(@patent_ids)")
+        params.append(bigquery.ArrayQueryParameter("patent_ids", "STRING", patent_ids))
+    
+    filter_clause = " AND ".join(filters)
+    if filter_clause:
+        filter_clause = "AND " + filter_clause
+    else:
+        filter_clause = ""
+    
     qry = qry.format(
         project_id=project_id,
         dataset_id=dataset_id,
-        table_name=table_name
+        table_name=table_name,
+        filter_clause=filter_clause
     )
+    
+    job_config = bigquery.QueryJobConfig(query_parameters=params)
+
     try:
-        results = pss_client.client.query_to_dataframe(qry)
+        results = pss_client.client.query_to_dataframe(qry, job_config=job_config)
     except Exception as err:
         logger.error(f"Failed to run user patents query - {err}")
         raise
@@ -65,11 +82,11 @@ def sanitize_input_query(query_text: str) -> Tuple[str, bool, str]:
         return "", False, "Query has 1 word"
     
     for word in words:
-        if len(word) > 4:
+        if len(word) > 3:
             char_counts = Counter(word)
             # If any character appears more than 60% of the time in a word
             max_char_ratio = max(char_counts.values()) / len(word)
-            if max_char_ratio > 0.6:
+            if max_char_ratio > 0.3:
                 return "", False, "Please enter meaningful words (avoid excessive repetition)"
     
     keyboard_patterns = ['qwerty', 'asdf', 'zxcv', 'qazwsx', 'plmokn', 'abcd', '123']
@@ -184,6 +201,28 @@ def technology_selection(key: Optional[str] = None) -> Optional[Dict[str, Any]]:
         return tech_categories.get(key)
     return tech_categories
 
+def generate_random_patents(table_name: str, cpc_code: str, top_k: int) -> pd.DataFrame:
+    """Generate a random sample of patents using cpc_code subclasses"""
+    qry = bq_queries.patent_random_sample
+    qry = qry.format(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_name=table_name,
+        cpc_code=cpc_code,
+        top_k=top_k
+    )
+
+    try:
+        results = pss_client.client.query_to_dataframe(qry)
+        publication_number = results["publication_number"][0]
+        if not publication_number or len(publication_number) == 0:
+            logger.warning(f"Random patent number generation query for cpc_code  subclas {cpc_code} returned no results")
+            return pd.DataFrame()
+    except Exception as err:
+        logger.error(f"Failed to generate random patents query - {err}")
+        raise
+    return results
+
 
 def run_semantic_search_pipeline(
         start_date: str, 
@@ -210,34 +249,37 @@ def run_semantic_search_pipeline(
         date_end=end_date,
         top_k=top_k
     )
+    if candidate_df.empty:
+        if patent_ids:
+            logger.warning(f"Semantic search did not return any candidate results for query patents - {patent_ids}")
+        else:
+            logger.warning(f"Semantic search did not return any candidate results for query text - {query_text}")
+        return pd.DataFrame()
 
-    # this query is to answer the "why" the candidate_df results match with the
-    # user's query. In short - explainability
+    logger.info(f"Consine similarity search returned {len(candidate_df)} similar patent(s)")
+    
+    # Explains why semantic search returns the patents it has
     if patent_ids:
-        logger.info("Running explainability for user patents")
+        logger.info("Running explainability steps for user patents")
         user_patents = run_user_patents_query(embedding_table_name, patent_ids=patent_ids)
         query_text = concat_patent_query_responses(user_patents)
     else:
-        logger.info("Running explainability for user text query")
-
-    logger.info("Running explainability steps")
-    if not candidate_df.empty:
-        semantic_matches = pss_client.semantic_search_with_explanability(
+        logger.info("Running explainability steps for user text query")
+    
+    semantic_matches = pss_client.semantic_search_with_explanability(
             model, 
             candidate_df,
             query_text=query_text,
             query_patents=patent_ids
         )
+    
+    if not semantic_matches.empty:
+        logger.info(f"Explainability analysis has returned {len(semantic_matches)} result(s)")
         return semantic_matches
     else:
-        if patent_ids:
-            logger.warning(f"Semantic search did not return any candidate results for query patents - {patent_ids}")
-        else:
-            logger.warning(f"Semantic search did not return any candidate results for query text - {query_text}")
-    
+        logger.warning(f"Explainability analysis has not returned any results indicating low overlap with user query or patent")
+
     return pd.DataFrame()
-                         
-    # pd.set_option("display.max_colwidth", None)
 
 if __name__ == "__main__":
     # test patents
