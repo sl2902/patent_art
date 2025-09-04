@@ -50,8 +50,11 @@ class GoogleClient:
         try:
             df = self._client.query(query, job_config=job_config).to_dataframe(**kwargs)
         except google.api_core.exceptions.BadRequest as err:
-            if 'query_patent_numbers' in err:
-                return None
+            error_message = str(err)
+            if 'query_patent_numbers' in error_message:
+                return pd.DataFrame()
+            else:
+                raise
         except Exception as err:
             logger.error(f"BigQuery {query} execution failed {err}")
             raise
