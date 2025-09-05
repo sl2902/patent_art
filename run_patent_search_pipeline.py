@@ -250,7 +250,9 @@ def run_semantic_search_pipeline(
         date_end=end_date,
         top_k=top_k
     )
-    if candidate_df.empty:
+    # Either BQ returns an empty DataFrame because there is no match for a given patent number
+    # or the patent number is invalid, in which case query_embedding results are 0
+    if candidate_df.empty or len(candidate_df.columns) == 1:
         if patent_ids:
             logger.warning(f"Semantic search did not return any candidate results for query patents - {patent_ids}")
         else:
