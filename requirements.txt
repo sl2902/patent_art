@@ -80,7 +80,7 @@ rsa==4.9.1
 safetensors==0.6.2
 scikit-learn==1.5.2
 scipy==1.14.1
-sentence-transformers==3.2.0
+sentence-transformers==4.1.0
 setuptools==80.9.0
 six==1.17.0
 smmap==5.0.2
@@ -95,7 +95,7 @@ toml==0.10.2
 torch==2.5.1
 tornado==6.4.1
 tqdm==4.67.1
-transformers==4.46.2
+transformers==4.52.4
 typing-extensions==4.12.2
 typing-inspection==0.4.1
 tzdata==2024.2
