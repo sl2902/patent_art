@@ -513,8 +513,8 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
         )
     else:
         fig.update_traces(
-            texttemplate='%{text:.2f}%' if column_name != 'avg_recent_patents' else '%{text:.1s}', 
-            textposition='outside',
+            texttemplate=texttemplate, 
+            textposition='inside',
             marker=dict(
                 color='#1f77b4',
                 opacity=0.8,
