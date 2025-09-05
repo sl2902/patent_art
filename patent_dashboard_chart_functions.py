@@ -7,8 +7,8 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
-from loguru import logger
 from datetime import datetime, date
+from loguru import logger
 
 from generate_patent_analysis import (
     dataset_size_table, country_wise_breakdown, top_country_each_month,
@@ -22,7 +22,7 @@ def load_summary_data():
     try:
         return dataset_size_table()
     except Exception as e:
-        print(f"Error loading summary data: {e}")
+        logger.warning(f"Error loading summary data: {e}")
         return pd.DataFrame()
 
 def load_country_data(top_n=10):
@@ -30,7 +30,7 @@ def load_country_data(top_n=10):
     try:
         return country_wise_breakdown(top_n)
     except Exception as e:
-        print(f"Error loading country data: {e}")
+        logger.warning(f"Error loading country data: {e}")
         return pd.DataFrame()
 
 def load_citation_data(top_n=10):
@@ -38,7 +38,7 @@ def load_citation_data(top_n=10):
     try:
         return citations_top_countries(top_n)
     except Exception as e:
-        print(f"Error loading citation data: {e}")
+        logger.warning(f"Error loading citation data: {e}")
         return pd.DataFrame()
 
 def load_cpc_data(top_n=10):
@@ -46,7 +46,7 @@ def load_cpc_data(top_n=10):
     try:
         return top_cpc(top_n)
     except Exception as e:
-        print(f"Error loading CPC data: {e}")
+        logger.warning(f"Error loading CPC data: {e}")
         return pd.DataFrame()
 
 def load_tech_area_data(top_n=10):
@@ -54,7 +54,7 @@ def load_tech_area_data(top_n=10):
     try:
         return tech_area_cpc(top_n)
     except Exception as e:
-        print(f"Error loading tech area data: {e}")
+        logger.warning(f"Error loading tech area data: {e}")
         return pd.DataFrame()
 
 def load_tech_convergence_data(top_n=5):
@@ -62,7 +62,7 @@ def load_tech_convergence_data(top_n=5):
     try:
         return tech_convergence(top_n)
     except Exception as e:
-        print(f"Error loading tech convergence data: {e}")
+        logger.warning(f"Error loading tech convergence data: {e}")
         return pd.DataFrame()
 
 def load_time_series_data():
@@ -70,7 +70,7 @@ def load_time_series_data():
     try:
         return yoy_lang_growth_rate()
     except Exception as e:
-        print(f"Error loading time series data: {e}")
+        logger.warning(f"Error loading time series data: {e}")
         return pd.DataFrame()
 
 def load_country_trends_data(top_n=10):
@@ -78,7 +78,7 @@ def load_country_trends_data(top_n=10):
     try:
         return yoy_country_growth_rate(top_n)
     except Exception as e:
-        print(f"Error loading country trends: {e}")
+        logger.warning(f"Error loading country trends: {e}")
         return pd.DataFrame()
 
 def load_patent_flow_data():
@@ -86,7 +86,7 @@ def load_patent_flow_data():
     try:
         return patent_flow()
     except Exception as e:
-        print(f"Error loading patent flow data: {e}")
+        logger.warning(f"Error loading patent flow data: {e}")
         return pd.DataFrame()
 
 def load_timeline_data():
@@ -94,7 +94,7 @@ def load_timeline_data():
     try:
         return top_country_each_month()
     except Exception as e:
-        print(f"Error loading timeline data: {e}")
+        logger.warning(f"Error loading timeline data: {e}")
         return pd.DataFrame()
 
 # Chart creation functions
@@ -235,8 +235,8 @@ def create_timeline_chart(df):
             y=1,
             xanchor="left",
             x=1.02,
-            bgcolor="rgba(0,0,0,0.8)",
-            bordercolor="black",
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="lightgray",
             borderwidth=1
         )
     )
@@ -282,8 +282,8 @@ def create_yoy_growth_chart(df):
         title="Year-over-Year Growth Rate of Patent Publications in English (2017-2024)",
         xaxis_title="Year",
         yaxis_title="YoY Growth Rate (%)",
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(255,255,255,0.5)',
+        paper_bgcolor='rgba(255,255,255,0.5)',
         width=800,
         height=500,
         margin=dict(l=50, r=50, t=60, b=50),
@@ -304,7 +304,7 @@ def create_yoy_growth_chart(df):
 def create_multi_country_yoy_chart(df):
     """Create multi-line YoY growth chart by countries"""
     if df.empty:
-        print("No data available for multi-country YoY chart")
+        logger.warning("No data available for multi-country YoY chart")
         return None
     
     fig = px.line(
@@ -368,7 +368,7 @@ def create_multi_country_yoy_chart(df):
             y=1,
             xanchor="left",
             x=1.02,
-            bgcolor="rgba(0,0,0,0.9)",
+            bgcolor="rgba(255,255,255,0.9)",
             bordercolor="lightgray",
             borderwidth=1
         ),
@@ -386,7 +386,7 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
         logger.warning("No data available for CPC chart")
         return None
     
-    y_col = "cpc_code" if "cpc_code" in df.columns else df.columns[0]
+    y_col = "cpc_code" if "cpc_code" in df.columns else df.columns[1]
     x_col = column_name if column_name in df.columns else df.columns[1]
     
     fig = px.bar(
@@ -409,7 +409,7 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
         )
     else:
         fig.update_traces(
-            texttemplate='%{text:.2f}%', 
+            texttemplate='%{text:.2f}%' if column_name != 'avg_recent_patents' else '%{text:.1s}', 
             textposition='outside',
             marker=dict(
                 color='#1f77b4',
@@ -422,7 +422,7 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
         yaxis=dict(
-            tickangle=0,
+            tickangle=-45,
             showgrid=False,
             zeroline=False,
             title="Classification",
@@ -546,15 +546,12 @@ def create_citation_table_styled(df):
     cols_to_keep = ["country_code", "total_patents", "patent_share", "patents_with_citations", 
                     "citation_rate_pct", "avg_citations_per_patent", "highly_cited_patents"]
     
-    available_cols = [col for col in cols_to_keep if col in df.columns]
-    
-    if not available_cols:
-        return df
-    
-    return df[available_cols].sort_values(
-        available_cols[1] if len(available_cols) > 1 else available_cols[0], 
-        ascending=False
+
+    styled_df = df[cols_to_keep].sort_values('total_patents', ascending=False)[:10].style.background_gradient(
+        subset=cols_to_keep[1:],
+        cmap="RdYlGn"
     )
+    styled_df
 
 # Demo function to display all charts
 def create_patent_dashboard_demo():
@@ -582,11 +579,42 @@ def create_patent_dashboard_demo():
     cpc_df = load_cpc_data()
     if not cpc_df.empty:
         logger.info(f"   Loaded CPC data with {len(cpc_df)} records")
-        fig = create_cpc_bar_chart(cpc_df)
+        fig = create_cpc_bar_chart(cpc_df, column_name="cpc_share", title_prefix="Top 5 CPCs")
         if fig:
             fig.show()
     
-    logger.info("4. Loading Time Series Data...")
+    logger.info("4. Loading Technology Area Data...")
+    tech_area_df = load_tech_area_data()
+    if not tech_area_df.empty:
+        logger.info(f"   Loaded tech area data with {len(tech_area_df)} records")
+        fig = create_cpc_bar_chart(tech_area_df, column_name="percentage", title_prefix="Technology Areas")
+        if fig:
+            fig.show()
+    
+    logger.info("5. Loading Technology Convergence Data...")
+    tech_convergence_df = load_tech_convergence_data()
+    if not tech_convergence_df.empty:
+        logger.info(f"   Loaded tech convergence data with {len(tech_convergence_df)} records")
+        fig = create_cpc_bar_chart(tech_convergence_df, column_name="avg_recent_patents", title_prefix="Technology Convergence")
+        if fig:
+            fig.show()
+    
+    logger.info("6. Loading Timeline Data...")
+    timeline_df = load_timeline_data()
+    if not timeline_df.empty:
+        logger.info(f"   Loaded timeline data with {len(timeline_df)} records")
+        fig = create_timeline_chart(timeline_df)
+        if fig:
+            fig.show()
+    
+    logger.info("7. Loading Citation Data...")
+    citation_df = load_citation_data()
+    if not citation_df.empty:
+        logger.info(f"   Loaded citation data with {len(citation_df)} records")
+        create_citation_table_styled(citation_df)
+
+    
+    logger.info("8. Loading Time Series Data...")
     trends_df = load_time_series_data()
     if not trends_df.empty:
         logger.info(f"   Loaded trends data with {len(trends_df)} records")
@@ -594,7 +622,7 @@ def create_patent_dashboard_demo():
         if fig:
             fig.show()
     
-    logger.info("5. Loading Country Trends Data...")
+    logger.info("9. Loading Country Trends Data...")
     country_trends_df = load_country_trends_data()
     if not country_trends_df.empty:
         logger.info(f"   Loaded country trends with {len(country_trends_df)} records")
@@ -602,7 +630,7 @@ def create_patent_dashboard_demo():
         if fig:
             fig.show()
     
-    logger.info("6. Loading Patent Flow Data...")
+    logger.info("10. Loading Patent Flow Data...")
     flow_df = load_patent_flow_data()
     if not flow_df.empty:
         logger.info(f"   Loaded flow data with {len(flow_df)} records")
