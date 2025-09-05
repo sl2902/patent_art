@@ -88,7 +88,7 @@ def sanitize_input_query(query_text: str) -> Tuple[str, bool, str]:
             char_counts = Counter(word)
             # If any character appears more than 60% of the time in a word
             max_char_ratio = max(char_counts.values()) / len(word)
-            if max_char_ratio > 0.5:
+            if max_char_ratio > 0.6:
                 return "", False, "Please enter meaningful words (avoid excessive repetition)"
     
     keyboard_patterns = ['qwerty', 'asdf', 'zxcv', 'qazwsx', 'plmokn', 'abcd', '123']
@@ -292,6 +292,6 @@ if __name__ == "__main__":
     end_date = "2024-02-01"
     run_semantic_search_pipeline(start_date, end_date, patent_ids=patent_ids)
 
-    query_text = "ssssss ekwpkwp"
+    query_text = "quantum computing error correction"
     print(sanitize_input_query(query_text))
 
