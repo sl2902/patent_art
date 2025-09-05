@@ -10,6 +10,8 @@ import numpy as np
 from datetime import datetime, date
 from loguru import logger
 from string import Template
+import matplotlib
+import matplotlib.colors as mcolors
 from IPython.display import HTML, display
 
 from generate_patent_analysis import (
@@ -101,63 +103,96 @@ def load_timeline_data():
 
 # Chart creation functions
 def display_metrics_html(summary_df: pd.DataFrame):
-    # Display summary stats
-    row = summary_df.iloc[0]
+    """
+    Display summary statistics as styled HTML cards.
+    For columns:
+      - total_patents
+      - unique_countries
+      - patent_families
+      - avg_title_length
+      - title_completeness
+      - abstract_completeness
+      - claims_completeness
+      - avg_abstract_length
+    """
+    if summary_df.empty:
+        return None
 
-    tpl = Template("""
+    row = summary_df.iloc[0]  # first row
+
+    # Build card content
+    metrics = [
+        ("Patent Portfolio Overview", [
+            ("Total Patents", f"{int(row['total_patents']):,}"),
+            ("Countries", f"{int(row['unique_countries']):,}"),
+            ("Patent Families", f"{int(row['patent_families']):,}"),
+            ("Avg Title Length", f"{row['avg_title_length']:.1f}")
+        ]),
+        ("Data Quality Metrics", [
+            ("Title Completeness", f"{row['title_completeness']:.1f}%"),
+            ("Abstract Completeness", f"{row['abstract_completeness']:.1f}%"),
+            ("Claims Completeness", f"{row['claims_completeness']:.1f}%")
+        ]),
+        ("Content Analysis", [
+            ("Avg Abstract Length", f"{row['avg_abstract_length']:.1f}")
+        ])
+    ]
+
+    # HTML + CSS layout
+    html = """
     <style>
-    .metric-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 15px;
+    .card-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
         margin: 20px 0;
+        font-family: Arial, sans-serif;
     }
     .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 20px;
-        border-radius: 10px;
-        min-width: 200px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+        border: 1px solid #eee;
     }
-    .metric-value {
-        font-size: 28px;
+    .card-title {
+        font-size: 16px;
         font-weight: bold;
-        margin-bottom: 5px;
+        margin-bottom: 12px;
+        color: #333;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 6px;
+    }
+    .metric {
+        display: flex;
+        justify-content: space-between;
+        margin: 6px 0;
+        font-size: 14px;
     }
     .metric-label {
-        font-size: 14px;
-        opacity: 0.9;
+        color: #666;
+    }
+    .metric-value {
+        font-weight: bold;
+        color: #2c3e50;
     }
     </style>
+    <div class="card-container">
+    """
 
-    <div class="metric-container">
-        <div class="metric-card">
-            <div class="metric-value">${total}</div>
-            <div class="metric-label">Total Patents</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-value">${countries}</div>
-            <div class="metric-label">Countries</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-value">${families}</div>
-            <div class="metric-label">Patent Families</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-value">${avg_title}</div>
-            <div class="metric-label">Avg Title Length</div>
-        </div>
-    </div>
-    """)
+    for section, items in metrics:
+        html += f'<div class="metric-card">'
+        html += f'<div class="card-title">{section}</div>'
+        for label, value in items:
+            html += f"""
+            <div class="metric">
+                <div class="metric-label">{label}</div>
+                <div class="metric-value">{value}</div>
+            </div>
+            """
+        html += "</div>"
 
-    html = tpl.substitute(
-        total=f"{row['total_patents']:,.0f}",
-        countries=f"{row['unique_countries']:,.0f}",
-        families=f"{row['unique_families']:,.0f}",
-        avg_title=f"{row['avg_title_length']:.1f}"
-    )
+    html += "</div>"
     display(HTML(html))
 
 def create_country_bar_chart(df):
@@ -602,18 +637,93 @@ def create_sankey_chart(df):
 
 def create_citation_table_styled(df):
     """Create styled citation analysis table"""
+    # if df.empty:
+    #     return None
+    
+    # cols_to_keep = ["country_code", "total_patents", "patent_share", "patents_with_citations", 
+    #                 "citation_rate_pct", "avg_citations_per_patent", "highly_cited_patents"]
+    
+
+    # styled_df = df[cols_to_keep].sort_values('total_patents', ascending=False)[:10].style.background_gradient(
+    #     subset=cols_to_keep[1:],
+    #     cmap="RdYlGn"
+    # )
+    # return styled_df
     if df.empty:
         return None
     
-    cols_to_keep = ["country_code", "total_patents", "patent_share", "patents_with_citations", 
-                    "citation_rate_pct", "avg_citations_per_patent", "highly_cited_patents"]
+    cols_to_keep = [
+        "country_code", "total_patents", "patent_share",
+        "patents_with_citations", "citation_rate_pct",
+        "avg_citations_per_patent", "highly_cited_patents"
+    ]
     
+    available_cols = [col for col in cols_to_keep if col in df.columns]
+    if not available_cols:
+        return df
+    
+    # sort by total_patents if available, else first col
+    sort_col = "total_patents" if "total_patents" in available_cols else available_cols[0]
+    df = df[available_cols].sort_values(sort_col, ascending=False).reset_index(drop=True)
+    
+    # choose RdYlGn colormap
+    cmap = matplotlib.colormaps.get_cmap('RdYlGn')
+    
+    # normalize values per column
+    norm_map = {}
+    for col in available_cols[1:]:
+        col_vals = df[col].astype(float)
+        vmin, vmax = col_vals.min(), col_vals.max()
+        if vmin == vmax:
+            norm = mcolors.Normalize(vmin=vmin - 1, vmax=vmax + 1)
+        else:
+            norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        norm_map[col] = norm
+    
+    # build HTML table
+    table_html = '<table class="citation-table">'
+    table_html += "<thead><tr>" + "".join(f"<th>{col}</th>" for col in available_cols) + "</tr></thead><tbody>"
+    
+    for _, row in df.iterrows():
+        table_html += "<tr>"
+        for col in available_cols:
+            val = row[col]
+            if col in norm_map:  # numeric with gradient
+                color = mcolors.to_hex(cmap(norm_map[col](float(val))))
+                cell_html = f'<td style="background-color:{color}; text-align:center;">{val:.2f}</td>'
+            else:  # categorical (e.g. country)
+                cell_html = f'<td style="text-align:center; font-weight:bold;">{val}</td>'
+            table_html += cell_html
+        table_html += "</tr>"
+    
+    table_html += "</tbody></table>"
+    
+    css = """
+    <style>
+    .citation-table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 20px 0;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+    }
+    .citation-table th {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 10px;
+    }
+    .citation-table td {
+        padding: 8px;
+        border: 1px solid #ddd;
+    }
+    .citation-table tr:hover {
+        background-color: #f1f1f1;
+    }
+    </style>
+    """
+    
+    display(HTML(css + table_html))
 
-    styled_df = df[cols_to_keep].sort_values('total_patents', ascending=False)[:10].style.background_gradient(
-        subset=cols_to_keep[1:],
-        cmap="RdYlGn"
-    )
-    return styled_df
 
 # Demo function to display all charts
 def create_patent_dashboard_demo():
