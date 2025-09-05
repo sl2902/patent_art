@@ -125,13 +125,13 @@ def display_metrics_html(summary_df: pd.DataFrame):
         ("Patent Portfolio Overview", [
             ("Total Patents", f"{int(row['total_patents']):,}"),
             ("Countries", f"{int(row['unique_countries']):,}"),
-            ("Patent Families", f"{int(row['patent_families']):,}"),
+            ("Patent Families", f"{int(row['unique_families']):,}"),
             ("Avg Title Length", f"{row['avg_title_length']:.1f}")
         ]),
         ("Data Quality Metrics", [
-            ("Title Completeness", f"{row['title_completeness']:.1f}%"),
-            ("Abstract Completeness", f"{row['abstract_completeness']:.1f}%"),
-            ("Claims Completeness", f"{row['claims_completeness']:.1f}%")
+            ("Title Completeness", f"{row['title_completeness_pct']:.1f}%"),
+            ("Abstract Completeness", f"{row['abstract_completeness_pct']:.1f}%"),
+            ("Claims Completeness", f"{row['claims_completeness_pct']:.1f}%")
         ]),
         ("Content Analysis", [
             ("Avg Abstract Length", f"{row['avg_abstract_length']:.1f}")
