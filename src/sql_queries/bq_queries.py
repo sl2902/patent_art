@@ -1,7 +1,6 @@
 """Contains various BigQuery sql queries used for Data analysis, patents embedding, indexing, querying and search"""
 import os
 import pandas as pd
-import streamlit as st
 
 
 # Exploratory analysis queries
