@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import numpy as np
 from datetime import datetime, date
 from loguru import logger
+from IPython.display import HTML, display
 
 from generate_patent_analysis import (
     dataset_size_table, country_wise_breakdown, top_country_each_month,
@@ -98,6 +99,63 @@ def load_timeline_data():
         return pd.DataFrame()
 
 # Chart creation functions
+def display_metrics_html(summary_df):
+    """Display metrics using HTML styling in Jupyter"""
+    html = """
+    <style>
+    .metric-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin: 20px 0;
+    }
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        min-width: 200px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .metric-value {
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .metric-label {
+        font-size: 14px;
+        opacity: 0.9;
+    }
+    </style>
+    
+    <div class="metric-container">
+        <div class="metric-card">
+            <div class="metric-value">{:,.0f}</div>
+            <div class="metric-label">Total Patents</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">{:,.0f}</div>
+            <div class="metric-label">Countries</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">{:,.0f}</div>
+            <div class="metric-label">Patent Families</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">{:.1f}</div>
+            <div class="metric-label">Avg Title Length</div>
+        </div>
+    </div>
+    """.format(
+        summary_df['total_patents'].iloc[0],
+        summary_df['unique_countries'].iloc[0], 
+        summary_df['unique_families'].iloc[0],
+        summary_df['avg_title_length'].iloc[0]
+    )
+    
+    display(HTML(html))
+
 def create_country_bar_chart(df):
     """Create country-wise distribution of publications"""
     if df.empty:
@@ -564,8 +622,9 @@ def create_patent_dashboard_demo():
     # logger.info("1. Loading Summary Data...")
     summary_df = load_summary_data()
     if not summary_df.empty:
-        logger.info(f"   Loaded summary data with {len(summary_df)} records")
-        logger.info(f"   Columns: {list(summary_df.columns)}")
+        display_metrics_html(summary_df)
+        # logger.info(f"   Loaded summary data with {len(summary_df)} records")
+        # logger.info(f"   Columns: {list(summary_df.columns)}")
     
     # logger.info("2. Loading Country Data...")
     country_df = load_country_data()
