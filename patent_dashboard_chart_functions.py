@@ -557,17 +557,17 @@ def create_citation_table_styled(df):
 def create_patent_dashboard_demo():
     """Create a demonstration of all patent visualization charts"""
     
-    logger.info("Loading Patent Analytics Dashboard Demo")
-    logger.info("=====================================")
+    # logger.info("Loading Patent Analytics Dashboard Demo")
+    # logger.info("=====================================")
     
     # Load data
-    logger.info("1. Loading Summary Data...")
+    # logger.info("1. Loading Summary Data...")
     summary_df = load_summary_data()
     if not summary_df.empty:
         logger.info(f"   Loaded summary data with {len(summary_df)} records")
         logger.info(f"   Columns: {list(summary_df.columns)}")
     
-    logger.info("2. Loading Country Data...")
+    # logger.info("2. Loading Country Data...")
     country_df = load_country_data()
     if not country_df.empty:
         logger.info(f"   Loaded country data with {len(country_df)} records")
@@ -575,7 +575,7 @@ def create_patent_dashboard_demo():
         if fig:
             fig.show()
     
-    logger.info("3. Loading CPC Data...")
+    # logger.info("3. Loading CPC Data...")
     cpc_df = load_cpc_data()
     if not cpc_df.empty:
         logger.info(f"   Loaded CPC data with {len(cpc_df)} records")
@@ -583,7 +583,7 @@ def create_patent_dashboard_demo():
         if fig:
             fig.show()
     
-    logger.info("4. Loading Technology Area Data...")
+    # logger.info("4. Loading Technology Area Data...")
     tech_area_df = load_tech_area_data()
     if not tech_area_df.empty:
         logger.info(f"   Loaded tech area data with {len(tech_area_df)} records")
@@ -591,7 +591,7 @@ def create_patent_dashboard_demo():
         if fig:
             fig.show()
     
-    logger.info("5. Loading Technology Convergence Data...")
+    # logger.info("5. Loading Technology Convergence Data...")
     tech_convergence_df = load_tech_convergence_data()
     if not tech_convergence_df.empty:
         logger.info(f"   Loaded tech convergence data with {len(tech_convergence_df)} records")
@@ -599,7 +599,7 @@ def create_patent_dashboard_demo():
         if fig:
             fig.show()
     
-    logger.info("6. Loading Timeline Data...")
+    # logger.info("6. Loading Timeline Data...")
     timeline_df = load_timeline_data()
     if not timeline_df.empty:
         logger.info(f"   Loaded timeline data with {len(timeline_df)} records")
@@ -607,14 +607,14 @@ def create_patent_dashboard_demo():
         if fig:
             fig.show()
     
-    logger.info("7. Loading Citation Data...")
+    # logger.info("7. Loading Citation Data...")
     citation_df = load_citation_data()
     if not citation_df.empty:
         logger.info(f"   Loaded citation data with {len(citation_df)} records")
         create_citation_table_styled(citation_df)
 
     
-    logger.info("8. Loading Time Series Data...")
+    # logger.info("8. Loading Time Series Data...")
     trends_df = load_time_series_data()
     if not trends_df.empty:
         logger.info(f"   Loaded trends data with {len(trends_df)} records")
@@ -622,7 +622,7 @@ def create_patent_dashboard_demo():
         if fig:
             fig.show()
     
-    logger.info("9. Loading Country Trends Data...")
+    # logger.info("9. Loading Country Trends Data...")
     country_trends_df = load_country_trends_data()
     if not country_trends_df.empty:
         logger.info(f"   Loaded country trends with {len(country_trends_df)} records")
@@ -630,7 +630,7 @@ def create_patent_dashboard_demo():
         if fig:
             fig.show()
     
-    logger.info("10. Loading Patent Flow Data...")
+    # logger.info("10. Loading Patent Flow Data...")
     flow_df = load_patent_flow_data()
     if not flow_df.empty:
         logger.info(f"   Loaded flow data with {len(flow_df)} records")
@@ -638,7 +638,7 @@ def create_patent_dashboard_demo():
         if fig:
             fig.show()
     
-    logger.success("Dashboard demo complete!")
+    # logger.success("Dashboard demo complete!")
 
 if __name__ == "__main__":
     # Run the demo
