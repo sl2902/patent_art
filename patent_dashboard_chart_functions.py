@@ -491,11 +491,18 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
         x=x_col,
         y=y_col,
         text=x_col,
-        labels={y_col: "Classification", x_col: "Share %"} if title_prefix != "Technology Convergence" else {y_col: "Classification", x_col: "Avg # of Patents"},
+        labels={y_col: "Classification", x_col: "Share %"} 
+            if title_prefix != "Technology Convergence" 
+            else {y_col: "Classification", x_col: "Avg # of Patents"},
         color_discrete_sequence=["#1f77b4"],
         orientation="h"
     )
     
+    if column_name != 'avg_recent_patents':
+        texttemplate = '%{text:.2f}%'
+    else:
+        texttemplate = '%{text:.2s}'
+    # Trace styling
     if title_prefix == "Technology Convergence":
         fig.update_traces(
             marker=dict(
@@ -515,15 +522,18 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
             )
         )
     
+    # Layout fixes
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
         yaxis=dict(
-            tickangle=-45,
+            tickangle=0,  # keep horizontal labels since it's a horizontal bar chart
             showgrid=False,
             zeroline=False,
             title="Classification",
-            autorange='reversed'
+            autorange='reversed',
+            title_standoff=25,   # <-- add padding between axis title and ticks
+            automargin=True      # <-- let plotly add margin if needed
         ),
         xaxis=dict(
             title="Percentage" if title_prefix != "Technology Convergence" else "Avg # of Patents",
@@ -538,10 +548,11 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
             x=0.5,
             font=dict(size=16)
         ),
-        margin=dict(l=20, r=20, t=60, b=60)
+        margin=dict(l=80, r=40, t=60, b=60)  # <-- extra left margin
     )
     
     return fig
+
 
 def create_sankey_chart(df):
     """Create Sankey diagram for patent flow"""
