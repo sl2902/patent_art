@@ -101,21 +101,8 @@ def load_timeline_data():
 
 # Chart creation functions
 def display_metrics_html(summary_df: pd.DataFrame):
-    # Display summary stats using HTML
+    # Display summary stats
     row = summary_df.iloc[0]
-
-    # coerce numbers & guard against NaN
-    def num(x, default=0):
-        try:
-            v = pd.to_numeric(x)
-            return default if (v is None or (isinstance(v, float) and math.isnan(v))) else v
-        except Exception:
-            return default
-
-    total      = num(row.get('total_patents', 0))
-    countries  = num(row.get('unique_countries', 0))
-    families   = num(row.get('unique_families', 0))
-    avg_title  = float(num(row.get('avg_title_length', 0.0)))
 
     tpl = Template("""
     <style>
@@ -166,10 +153,10 @@ def display_metrics_html(summary_df: pd.DataFrame):
     """)
 
     html = tpl.substitute(
-        total=f"{total:,.0f}",
-        countries=f"{countries:,.0f}",
-        families=f"{families:,.0f}",
-        avg_title=f"{avg_title:.1f}",
+        total=f"{row['total_patents']:,.0f}",
+        countries=f"{row['unique_countries']:,.0f}",
+        families=f"{row['unique_families']:,.0f}",
+        avg_title=f"{row['avg_title_length']:.1f}"
     )
     display(HTML(html))
 
