@@ -103,13 +103,13 @@ def display_metrics_html(summary_df):
     """Display metrics using HTML styling in Jupyter"""
     html = """
     <style>
-    .metric-container {
+    .metric-container {{
         display: flex;
         flex-wrap: wrap;
         gap: 15px;
         margin: 20px 0;
-    }
-    .metric-card {
+    }}
+    .metric-card {{
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 20px;
@@ -117,16 +117,16 @@ def display_metrics_html(summary_df):
         min-width: 200px;
         text-align: center;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .metric-value {
+    }}
+    .metric-value {{
         font-size: 28px;
         font-weight: bold;
         margin-bottom: 5px;
-    }
-    .metric-label {
+    }}
+    .metric-label {{
         font-size: 14px;
         opacity: 0.9;
-    }
+    }}
     </style>
     
     <div class="metric-container">
