@@ -149,7 +149,7 @@ def create_country_bar_chart(df):
             x=0.5,
             font=dict(size=16)
         ),
-        margin=dict(l=20, r=20, t=60, b=60)
+        margin=dict(l=80, r=20, t=60, b=60)
     )
 
     return fig
