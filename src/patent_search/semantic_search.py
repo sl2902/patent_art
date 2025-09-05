@@ -152,10 +152,9 @@ class PatentSemanticSearch:
                                 ))
             query_embedding = result['avg_embedding'][0].tolist()
             logger.info(f"Computed the average embedding vectors for list of patents - {query_patent_numbers}")
-            avg_embedding = result["avg_embedding"].iloc[0]
-            if len(avg_embedding) == 0:
+            if len(query_embedding) == 0:
                 logger.warning(f"Semantic search via `query_patent_numbers {query_patent_numbers} returned no results")
-                return pd.DataFrame()
+                return result
 
         logger.info(f"Embedding dimension vector length - {len(query_embedding)}")
 
@@ -189,8 +188,7 @@ class PatentSemanticSearch:
             table_name=table_name,
             top_k=top_k,
             filter_clause=filter_clause
-        )     
-        logger.info(query)   
+        ) 
         params.append(bigquery.ScalarQueryParameter("top_k", "INT64", top_k))
         job_config = bigquery.QueryJobConfig(query_parameters=params)
         logger.info("Computing cosine similarity with BigQuery vector search")
