@@ -236,7 +236,7 @@ def run_semantic_search_pipeline(
     ) -> Optional[pd.DataFrame]:
 
     model_name = "all-MiniLM-L6-v2"
-    model = SentenceTransformer(model_name, use_auth_token=hf_token)
+    model = SentenceTransformer(model_name, token=hf_token)
     embedding_table_name = 'patent_embeddings_local'
 
 
