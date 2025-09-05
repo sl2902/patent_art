@@ -13,16 +13,32 @@ from src.patent_search.semantic_search import PatentSemanticSearch
 import torch
 from sentence_transformers import SentenceTransformer
 import gc
-import streamlit as st
 from tqdm import tqdm
 from collections import Counter
 from dotenv import load_dotenv
 load_dotenv()
 
-project_id = os.getenv("project_id") or st.secrets["google"]["project_id"]
-dataset_id = os.getenv("dataset_id") or st.secrets["google"]["dataset_id"]
-hf_token = os.getenv('hf_token') or st.secrets["hf"]["hf_token"]
-credentials_path = os.getenv("service_account_path")
+# project_id = os.getenv("project_id") or st.secrets["google"]["project_id"]
+# dataset_id = os.getenv("dataset_id") or st.secrets["google"]["dataset_id"]
+# hf_token = os.getenv('hf_token') or st.secrets["hf"]["hf_token"]
+# credentials_path = os.getenv("service_account_path")
+
+try:
+    import streamlit as st
+    HAS_STREAMLIT = True
+except ImportError:
+    HAS_STREAMLIT = False
+
+# Get configuration with fallbacks
+if HAS_STREAMLIT and hasattr(st, 'secrets'):
+    project_id = os.getenv("project_id") or st.secrets["google"]["project_id"]
+    dataset_id = os.getenv("dataset_id") or st.secrets["google"]["dataset_id"]
+    hf_token = os.getenv('hf_token') or st.secrets["hf"]["hf_token"]
+    credentials_path = os.getenv("service_account_path")
+else:
+    project_id = os.getenv("project_id")
+    dataset_id = os.getenv("dataset_id") 
+    credentials_path = os.getenv("service_account_path")
 
 
 pss_client = PatentSemanticSearch(
