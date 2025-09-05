@@ -4,18 +4,32 @@ import pandas as pd
 import pandas_gbq
 from typing import Any, Dict, List, Optional
 from loguru import logger
-import streamlit as st
 from src.sql_queries import bq_queries
 from src.google import google_client
 from dotenv import load_dotenv
 load_dotenv()
 
-project_id = os.getenv("project_id") or st.secrets["google"]["project_id"]
-dataset_id = os.getenv("dataset_id") or st.secrets["google"]["dataset_id"]
-publication_table = os.getenv("publication_table") or st.secrets["google"]["publication_table"]
+# project_id = os.getenv("project_id") or st.secrets["google"]["project_id"]
+# dataset_id = os.getenv("dataset_id") or st.secrets["google"]["dataset_id"]
+# publication_table = os.getenv("publication_table") or st.secrets["google"]["publication_table"]
+try:
+    import streamlit as st
+    HAS_STREAMLIT = True
+except ImportError:
+    HAS_STREAMLIT = False
+
+# Get configuration with fallbacks
+if HAS_STREAMLIT and hasattr(st, 'secrets'):
+    project_id = os.getenv("project_id") or st.secrets["google"]["project_id"]
+    dataset_id = os.getenv("dataset_id") or st.secrets["google"]["dataset_id"]
+    publication_table = os.getenv("publication_table") or st.secrets["google"]["publication_table"]
+else:
+    project_id = os.getenv("project_id")
+    dataset_id = os.getenv("dataset_id") 
+    publication_table = os.getenv("publication_table")
 
 client = google_client.GoogleClient(
-        project_id=os.getenv("project_id"),
+        project_id=project_id,
         credentials_path=os.getenv("service_account_path")
     )
 
