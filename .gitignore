@@ -6,3 +6,9 @@ pybites.db
 
 # env
 .env
+
+# wheels
+wheels
+
+#
+*.zip
