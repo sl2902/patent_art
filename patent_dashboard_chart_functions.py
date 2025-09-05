@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import numpy as np
 from datetime import datetime, date
 from loguru import logger
+from string import Template
 from IPython.display import HTML, display
 
 from generate_patent_analysis import (
@@ -99,17 +100,32 @@ def load_timeline_data():
         return pd.DataFrame()
 
 # Chart creation functions
-def display_metrics_html(summary_df):
-    """Display metrics using HTML styling in Jupyter"""
-    html = """
+def display_metrics_html(summary_df: pd.DataFrame):
+    # Display summary stats using HTML
+    row = summary_df.iloc[0]
+
+    # coerce numbers & guard against NaN
+    def num(x, default=0):
+        try:
+            v = pd.to_numeric(x)
+            return default if (v is None or (isinstance(v, float) and math.isnan(v))) else v
+        except Exception:
+            return default
+
+    total      = num(row.get('total_patents', 0))
+    countries  = num(row.get('unique_countries', 0))
+    families   = num(row.get('unique_families', 0))
+    avg_title  = float(num(row.get('avg_title_length', 0.0)))
+
+    tpl = Template("""
     <style>
-    .metric-container {{
+    .metric-container {
         display: flex;
         flex-wrap: wrap;
         gap: 15px;
         margin: 20px 0;
-    }}
-    .metric-card {{
+    }
+    .metric-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 20px;
@@ -117,43 +133,44 @@ def display_metrics_html(summary_df):
         min-width: 200px;
         text-align: center;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }}
-    .metric-value {{
+    }
+    .metric-value {
         font-size: 28px;
         font-weight: bold;
         margin-bottom: 5px;
-    }}
-    .metric-label {{
+    }
+    .metric-label {
         font-size: 14px;
         opacity: 0.9;
-    }}
+    }
     </style>
-    
+
     <div class="metric-container">
         <div class="metric-card">
-            <div class="metric-value">{:,.0f}</div>
+            <div class="metric-value">${total}</div>
             <div class="metric-label">Total Patents</div>
         </div>
         <div class="metric-card">
-            <div class="metric-value">{:,.0f}</div>
+            <div class="metric-value">${countries}</div>
             <div class="metric-label">Countries</div>
         </div>
         <div class="metric-card">
-            <div class="metric-value">{:,.0f}</div>
+            <div class="metric-value">${families}</div>
             <div class="metric-label">Patent Families</div>
         </div>
         <div class="metric-card">
-            <div class="metric-value">{:.1f}</div>
+            <div class="metric-value">${avg_title}</div>
             <div class="metric-label">Avg Title Length</div>
         </div>
     </div>
-    """.format(
-        summary_df['total_patents'].iloc[0],
-        summary_df['unique_countries'].iloc[0], 
-        summary_df['unique_families'].iloc[0],
-        summary_df['avg_title_length'].iloc[0]
+    """)
+
+    html = tpl.substitute(
+        total=f"{total:,.0f}",
+        countries=f"{countries:,.0f}",
+        families=f"{families:,.0f}",
+        avg_title=f"{avg_title:.1f}",
     )
-    
     display(HTML(html))
 
 def create_country_bar_chart(df):
