@@ -21,6 +21,7 @@ load_dotenv()
 
 project_id = os.getenv("project_id") or st.secrets["google"]["project_id"]
 dataset_id = os.getenv("dataset_id") or st.secrets["google"]["dataset_id"]
+hf_token = os.getenv('hf_token') or st.secrets["hf"]["hf_token"]
 credentials_path = os.getenv("service_account_path")
 
 
@@ -235,7 +236,7 @@ def run_semantic_search_pipeline(
     ) -> Optional[pd.DataFrame]:
 
     model_name = "all-MiniLM-L6-v2"
-    model = SentenceTransformer(model_name)
+    model = SentenceTransformer(model_name, use_auth_token=hf_token)
     embedding_table_name = 'patent_embeddings_local'
 
 
