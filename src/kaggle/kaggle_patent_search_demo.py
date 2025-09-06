@@ -96,7 +96,12 @@ class PatentSearchInterface:
         # Patent numbers input
         self.patent_numbers = widgets.Textarea(
             value='',
-            placeholder='Enter patent numbers, one per line (e.g., US1234567A1)',
+            placeholder='''Enter patent numbers, one per line
+              (e.g.
+              US1234567A1
+              TW1234567A1
+              )
+              ''',
             description='Patents:',
             layout=widgets.Layout(width='600px', height='80px'),
             style={'description_width': 'initial'}
