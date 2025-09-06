@@ -583,3 +583,73 @@ patents_query = """
     WHERE  1=1
     {filter_clause};
 """
+
+# Latency measurement queries
+create_latency_ddl = """
+    CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.{latency_table}`
+    (
+        query STRING,
+        test_type STRING,  -- 'vector_search' or 'explainability' or 'complete_pipeline'
+        run_environment STRING,  -- 'laptop' or 'kaggle' or 'cloud',
+        cache_hit BOOL,
+        embedding_time_ms FLOAT64,
+        search_time_ms FLOAT64,
+        explainability_time_ms FLOAT64,  -- NEW: time for explainability step
+        total_time_ms FLOAT64,
+        results_count INT64,
+        bytes_processed INT64,
+        slot_millis INT64,
+        min_similarity FLOAT64,
+        avg_similarity FLOAT64,
+        max_similarity FLOAT64,
+        run_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
+    )
+    OPTIONS(
+        description = "Latency test measurements for patent semantic search pipeline"
+    )
+"""
+
+latency_analysis = """
+    SELECT 
+        test_type,
+        run_environment,
+        COUNT(*) as query_count,
+        MIN(total_time_ms) as min_latency,
+        APPROX_QUANTILES(total_time_ms, 100)[OFFSET(50)] as median_latency,
+        AVG(total_time_ms) as mean_latency,
+        MAX(total_time_ms) as max_latency,
+        STDDEV(total_time_ms) as std_dev_latency,
+        APPROX_QUANTILES(total_time_ms, 100)[OFFSET(90)] as p90_latency,
+        APPROX_QUANTILES(total_time_ms, 100)[OFFSET(95)] as p95_latency,
+        APPROX_QUANTILES(total_time_ms, 100)[OFFSET(99)] as p99_latency
+    FROM `{project_id}.{dataset_id}.{latency_table}`
+    GROUP BY test_type, run_environment
+    ORDER BY test_type, run_environment
+
+"""
+
+### BQ partition pruning queries
+create_paritioned_pruning_table =  """
+    CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.{partition_pruned_table}`
+    (
+        test_query STRING,
+        test_type STRING,  -- 'full_scan' or 'partition_pruned'
+        run_environment STRING,
+        filter_clause STRING,
+        date_range_months INT64,  -- Number of months in date filter (0 for full scan)
+        embedding_time_ms FLOAT64,
+        search_time_ms FLOAT64,
+        total_time_ms FLOAT64,
+        results_count INT64,
+        bytes_processed INT64,
+        slot_millis INT64,
+        cache_hit BOOLEAN,
+        min_similarity FLOAT64,
+        avg_similarity FLOAT64,
+        max_similarity FLOAT64,
+        run_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
+    )
+    OPTIONS(
+        description = "Partition pruning efficiency test results"
+    )
+"""
