@@ -9,6 +9,12 @@ import pandas as pd
 from typing import List, Optional
 from datetime import date
 import json
+from run_patent_search_pipeline import(
+    sanitize_input_query,
+    run_semantic_search_pipeline,
+    technology_selection,
+    generate_random_patents
+)
 
 MIN_DATE = date(2024, 1, 1)
 MAX_DATE = date(2024, 6, 30)
