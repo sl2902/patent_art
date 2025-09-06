@@ -117,6 +117,14 @@ class PatentSearchInterface:
             style={'description_width': 'initial'}
         )
 
+        self.note_widget = widgets.HTML(
+            "<div style='font-size:12px; color:#555; margin-top:4px;'>"
+            "<b>Note:</b> If you enter multiple patents, the engine takes the "
+            "<i>average of their embeddings</i> before computing similarity."
+            "</div>"
+        )
+        self.note_widget.layout.display = 'none'
+
         self.end_date.observe(self.validate_dates, names='value')
         
         # Top K results
@@ -155,9 +163,11 @@ class PatentSearchInterface:
         if self.search_method.value == 'Text Query':
             self.query_text.layout.display = 'block'
             self.patent_numbers.layout.display = 'none'
+            self.note_widget.layout.display = 'none'
         else:
             self.query_text.layout.display = 'none'
             self.patent_numbers.layout.display = 'block'
+            self.note_widget.layout.display = 'block'
     
     def display_query_info(self, query_text=None, patent_ids=None):
         """Display information about the current query"""
@@ -172,7 +182,6 @@ class PatentSearchInterface:
             # For patent queries, you might want to fetch titles
             patents_display = ""
             for patent_id in patent_ids:
-                # You could enhance this by fetching actual patent titles
                 patents_display += f"<li><b>{patent_id}</b></li>"
             
             return f"""
