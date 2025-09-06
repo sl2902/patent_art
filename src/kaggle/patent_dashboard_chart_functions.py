@@ -477,7 +477,7 @@ def create_multi_country_yoy_chart(df):
     
     return fig
 
-def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs"):
+def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs", top_k : int = 5):
     """Create horizontal bar chart for CPC analysis"""
     if df.empty:
         logger.warning("No data available for CPC chart")
@@ -486,6 +486,8 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
     y_col = "cpc_code" if "cpc_code" in df.columns else df.columns[1]
     x_col = column_name if column_name in df.columns else df.columns[1]
     
+    if column_name == "cpc_share":
+        df = df[:top_k]
     fig = px.bar(
         df,
         x=x_col,
