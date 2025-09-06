@@ -45,6 +45,15 @@ class GoogleClient:
             logger.error(f"BigQuery DDL {query} execution failed {err}")
             raise
     
+    def execute_sql_query(self, query: str, job_config: Optional[Sequence[str]] = None) -> bigquery.job.query.QueryJob:
+        """Execute BigQuery SQL queries with optional job configuration. Used in Latency Testing"""
+        try:
+            job = self._client.query(query, job_config=job_config)
+        except Exception as err:
+            logger.error(f"BigQuery DDL {query} execution failed {err}")
+            raise
+        return job
+    
     def query_to_dataframe(self, query: str, job_config: Optional[Sequence[str]] = None, **kwargs) -> pd.DataFrame:
         """Execute BigQuery query and return Pandas DataFrame"""
         try:
