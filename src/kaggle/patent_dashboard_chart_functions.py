@@ -14,7 +14,7 @@ import matplotlib
 import matplotlib.colors as mcolors
 from IPython.display import HTML, display
 
-from src.generate_patent_analysis import (
+from generate_patent_analysis import (
     dataset_size_table, country_wise_breakdown, top_country_each_month,
     yoy_lang_growth_rate, yoy_country_growth_rate, citations_top_countries,
     top_cpc, tech_area_cpc, tech_convergence, patent_flow
