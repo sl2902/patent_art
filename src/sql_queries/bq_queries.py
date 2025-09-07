@@ -723,3 +723,27 @@ create_vector_index_table = """
         description = "Vector index performance test results comparing brute force vs indexed search"
     )
 """
+
+# Search comparison queries
+create_search_comparison_ddl = """
+    CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.{search_comparison_table}`
+(
+    query STRING,
+    test_type STRING,  -- 'vector_search' or 'keyword_search'
+    run_environment STRING,
+    embedding_time_ms FLOAT64,
+    search_time_ms FLOAT64,
+    total_time_ms FLOAT64,
+    total_bytes_processed INT64,
+    semantic_results_count INT64,
+    keyword_results_count INT64,
+    overlap_count INT64,
+    semantic_unique_count INT64,
+    keyword_unique_count INT64,
+    semantic_discovery_rate FLOAT64,
+    run_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
+)
+OPTIONS(
+    description = "Search comparison test results between semantic and keyword search"
+)
+"""
