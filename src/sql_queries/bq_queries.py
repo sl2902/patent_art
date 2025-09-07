@@ -348,12 +348,13 @@ create_embedding_ddl = """
 
 create_vector_index = """
     CREATE VECTOR INDEX IF NOT EXISTS `{project_id}.{dataset_id}.{vector_index}`
-        ON `{project_id}.{dataset_id}.{embedding_table_name}`({embedding_column})
-        OPTIONS(
-            index_type = 'IVF',
-            distance_type = 'COSINE',
-            ivf_options = '{{"num_lists": 100}}'
-)
+    ON `{project_id}.{dataset_id}.{table_name}`({embedding_column})
+    STORING (publication_number, title_en, abstract_en, pub_date, country_code)
+    OPTIONS (
+        index_type = 'IVF',
+        distance_type = 'COSINE',
+        ivf_options = '{{"num_lists": {num_lists}}}'
+    )
 """
 
 # Tracks count of embeding batches loaded so far
@@ -560,7 +561,8 @@ vector_search_query = """
                 TABLE query_embedding,
                 'embedding',
                 distance_type => 'COSINE',
-                top_k => {top_k}
+                top_k => {top_k},
+                options => '{options}'
             )
             ORDER BY distance
         """
@@ -651,5 +653,73 @@ create_paritioned_pruning_table =  """
     )
     OPTIONS(
         description = "Partition pruning efficiency test results"
+    )
+"""
+
+# using table reference instead of select subquery; this query is 
+# used in the vector index performance testing
+vector_search_performance_query = """
+            WITH query_embedding AS (
+                SELECT @query_embeddings AS embedding
+            )
+            SELECT 
+            base.publication_number,
+            base.country_code,
+            base.title_en,
+            base.abstract_en,
+            base.pub_date,
+            distance,
+            ROUND((1 - distance), 4) as cosine_score
+            
+            FROM VECTOR_SEARCH(
+                TABLE `{project_id}.{dataset_id}.{table_name}`,
+                'text_embedding',
+                TABLE query_embedding,
+                'embedding',
+                distance_type => 'COSINE',
+                top_k => {top_k},
+                options => '{options}'
+            )
+            ORDER BY distance
+        """
+
+### BigQuery Vector index performance
+create_vector_index_table = """
+    CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.{vector_index_table}`
+    (
+        test_query STRING,
+        search_method STRING,  -- 'brute_force', 'vector_index', 'index_creation'
+        run_environment STRING,
+        index_name STRING,
+        index_usage_mode STRING,
+        index_unused_reasons ARRAY<
+                                    STRUCT<
+                                        code STRING,
+                                        message STRING,
+                                            base_table STRUCT<
+                                            project_id STRING,
+                                            dataset_id STRING,
+                                            table_id STRING
+                                        >
+                                    >
+                                >,
+        ivf_num_lists INT64,
+        fraction_lists_searched FLOAT64,
+        embedding_time_ms FLOAT64,
+        search_time_ms FLOAT64,
+        index_creation_time_ms FLOAT64,
+        total_time_ms FLOAT64,
+        results_count INT64,
+        bytes_processed INT64,
+        slot_millis INT64,
+        cache_hit BOOLEAN,
+        recall_vs_brute_force FLOAT64,  -- Accuracy compared to brute force
+        min_similarity FLOAT64,
+        avg_similarity FLOAT64,
+        max_similarity FLOAT64,
+        run_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
+    )
+    OPTIONS(
+        description = "Vector index performance test results comparing brute force vs indexed search"
     )
 """
