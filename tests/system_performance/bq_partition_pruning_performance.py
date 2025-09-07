@@ -77,7 +77,7 @@ def execute_vector_search_with_filter(
         date_end: str = None,
         top_k: int = 20,
         test_label: str = "",
-        ) -> Tuple[pd.DataFrame, int, bigquery.job.QueryJob]:
+        ) -> Dict[str, Any]:
     """Execute BigQuery AI Vector Search"""
     query = bq_queries.vector_search_query
     table_name = "patent_embeddings_local"
