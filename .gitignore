@@ -10,5 +10,11 @@ pybites.db
 # wheels
 wheels
 
-#
+# zip
 *.zip
+
+# json
+*.json
+
+test_viz.py
+
