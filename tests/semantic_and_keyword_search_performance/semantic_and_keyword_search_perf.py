@@ -352,7 +352,7 @@ def save_results_to_bigquery(results_list: list):
             json.dump(flattened_results, f, indent=2, default=str)
         logger.info(f"Results saved to backup file: {backup_file}")
 
-def run_comprehensive_latency_test(run_environment: str = "laptop"):
+def run_comprehensive_comparison_test(run_environment: str = "laptop"):
     """Run comprehensive search comparison testing across multiple queries"""
     logger.info("\n" + "="*60)
     logger.info("COMPREHENSIVE SEARCH COMPARISON TEST")
@@ -452,7 +452,7 @@ def main():
     # test_single_query(query_text)
     
     # Run comprehensive test
-    results = run_comprehensive_latency_test(run_environment=run_environment)
+    results = run_comprehensive_comparison_test(run_environment=run_environment)
     
     # Test concurrent performance (optional)
     # test_concurrent_performance()
