@@ -157,7 +157,7 @@ def test_partition_pruning_single_query(
             'date_start': None,
             'date_end': None,
             'date_range_months': 0,
-            'description': 'Full table scan (all 2.2M patents)'
+            'description': 'Full table scan (all 2.9M patents)'
         },
         {
             'label': 'partition_6_months', 
