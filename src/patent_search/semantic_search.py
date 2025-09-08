@@ -13,6 +13,7 @@ from src.sql_queries import bq_queries
 from loguru import logger
 import torch
 import gc
+import json
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -187,7 +188,8 @@ class PatentSemanticSearch:
             dataset_id=self.dataset_id,
             table_name=table_name,
             top_k=top_k,
-            filter_clause=filter_clause
+            filter_clause=filter_clause,
+            options=json.dumps({"use_brute_force": True})
         ) 
         params.append(bigquery.ScalarQueryParameter("top_k", "INT64", top_k))
         job_config = bigquery.QueryJobConfig(query_parameters=params)
