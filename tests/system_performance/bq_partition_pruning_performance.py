@@ -106,7 +106,8 @@ def execute_vector_search_with_filter(
         dataset_id=dataset_id,
         table_name=table_name,
         top_k=top_k,
-        filter_clause=filter_clause
+        filter_clause=filter_clause,
+        options=json.dumps({"use_brute_force": True})
     )
     # Add unique identifier to avoid cache hits between tests
     unique_query = f"{query} -- {test_label}_{int(time.time())}"
