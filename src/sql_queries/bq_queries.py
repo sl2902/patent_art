@@ -567,6 +567,19 @@ vector_search_query = """
             ORDER BY distance
         """
 
+# Create table to store flattened CPC codes which will be used in Streamlit to generate
+# random patents for the demo
+create_cpc_ddl = """
+    CREATE OR REPLACE TABLE `{project_id}.{dataset_id}.{patents_cpc_table}` AS
+    SELECT 
+    a.publication_number,
+    a.title_en,
+    cpc_code
+    FROM `{project_id}.{dataset_id}.{patents_source_table}` a,
+    UNNEST(cpc_codes) AS cpc_code JOIN `{project_id}.{dataset_id}.{patents_embedding_table}` b
+    ON a.publication_number = b.publication_number
+"""
+
 # Fetch random sample of patents using cpc_code subclass
 patent_random_sample = """
             SELECT
