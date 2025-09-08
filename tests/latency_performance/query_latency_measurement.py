@@ -42,6 +42,8 @@ else:
     dataset_id = os.getenv("dataset_id") 
     credentials_path = os.getenv("service_account_path")
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 
 pss_client = PatentSemanticSearch(
     project_id=project_id,
@@ -52,8 +54,23 @@ pss_client = PatentSemanticSearch(
 model_name =  "all-MiniLM-L6-v2"
 model = SentenceTransformer(model_name, token=hf_token)
 
+def create_latency_table():
+    """Create latency results table in BigQuery"""
+    query = bq_queries.create_latency_ddl
+    query = query.format(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        latency_table="latency_test_results"
+    )
+    
+    try:
+        job = pss_client.client.execute_sql_query(query)
+        job.result()  # Wait for completion
+        logger.info("Latency results table created successfully")
+    except Exception as e:
+        logger.error(f"Failed to create latency table: {e}")
 
-def run_sanitization_step(query_text: str) -> Tuple[str, float]:
+def run_sanitization_step(query_text: str) -> Tuple[str, int]:
     """Sanitize the input query"""
     start_time = time.time()
     query_text, is_valid, error_msg = sanitize_input_query(query_text)
@@ -65,7 +82,7 @@ def run_sanitization_step(query_text: str) -> Tuple[str, float]:
 
     return query_text, sanitization_time
 
-def generate_embeddings(query_text: str) -> Tuple[List[float], float]:
+def generate_embeddings(query_text: str) -> Tuple[List[float], int]:
     """Generate query embeddings"""
     start_time = time.time()
     embeddings = generate_local_embeddings_for_query(model, query_text)
@@ -76,7 +93,7 @@ def generate_embeddings(query_text: str) -> Tuple[List[float], float]:
 def execute_vector_search(
         query_embeddings: List[float],
         top_k: int = 20
-        ) -> Tuple[pd.DataFrame, float, bigquery.job.query.QueryJob]:
+        ) -> Tuple[pd.DataFrame, int, bigquery.job.QueryJob]:
     """Execute BigQuery AI Vector Search"""
     query = bq_queries.vector_search_query
     table_name = "patent_embeddings_local"
@@ -86,7 +103,8 @@ def execute_vector_search(
             dataset_id=dataset_id,
             table_name=table_name,
             top_k=top_k,
-            filter_clause=filter_clause
+            filter_clause=filter_clause,
+            options=json.dumps({"use_brute_force": True})
         ) 
 
     start_time = time.time()
@@ -101,7 +119,6 @@ def execute_vector_search(
     results = job.to_dataframe()
     # logger.info(results)
     search_time = time.time() - start_time
-    logger.info(f"Cache hit: {job.cache_hit}")
     
     return results, search_time, job
 
@@ -122,201 +139,265 @@ def execute_semantic_search_explainability(
 
     return semantic_matches, explain_time
 
-def test_single_query(query_text: str, top_k: int = 20):
-    """Test end-to-end latency for a single query"""
-
+def test_single_query(query_text: str, top_k: int = 20, run_environment: str = "laptop"):
+    """Test end-to-end latency for a single query with explainability"""
+    
     # Step 1: Run validation on input query
     logger.info(f"\nTesting query: '{query_text}'")
     query_text, sanitization_time = run_sanitization_step(query_text)
     logger.info(f"  Sanitization of query: {sanitization_time*1000:.1f}ms")
-
-        
+    
     # Step 2: Generate query embedding (CPU)
     query_embeddings, embedding_time = generate_embeddings(query_text)
     logger.info(f"  Embedding generation: {embedding_time*1000:.1f}ms")
     
     # Step 3: Execute vector search (BigQuery AI)
     try:
-        results, search_time, job_id = execute_vector_search(query_embeddings)
+        results, search_time, job = execute_vector_search(query_embeddings, top_k)
         logger.info(f"  Vector search: {search_time*1000:.1f}ms")
         
-        # Step 3: Calculate total time
-        total_time = sanitization_time + embedding_time + search_time
-        logger.info(f"  Total latency: {total_time*1000:.1f}ms")
+        # Step 4: Execute semantic search explainability (CPU)
+        explainability_results, explainability_time = execute_semantic_search_explainability(
+            results, query_text
+        )
+        logger.info(f"  Explainability analysis: {explainability_time*1000:.1f}ms")
+        
+        # Calculate total times
+        vector_search_total = sanitization_time + embedding_time + search_time
+        complete_pipeline_total = vector_search_total + explainability_time
+        
+        logger.info(f"  Vector search pipeline: {vector_search_total*1000:.1f}ms")
+        logger.info(f"  Complete pipeline total: {complete_pipeline_total*1000:.1f}ms")
         logger.info(f"  Results found: {len(results)}")
+        logger.info(f"  Explainability results: {len(explainability_results) if explainability_results is not None else 0}")
         
         # BigQuery job metrics
-        logger.info(f"DEBUG - job.total_bytes_processed value: {job_id.cache_hit}")
-        if not job_id.cache_hit:
-            logger.info(f"  Bytes processed: {job_id.total_bytes_processed:,}")
-            logger.info(f"  Slot milliseconds: {job_id.slot_millis:,}")
-        
-            return {
+        if not job.cache_hit:
+            logger.info(f"  Bytes processed: {job.total_bytes_processed:,}")
+            logger.info(f"  Slot milliseconds: {job.slot_millis:,}")
+            base_metrics = {
                 'query': query_text,
+                'run_environment': run_environment,
+                'cache_hit': job.cache_hit,
                 'embedding_time_ms': embedding_time * 1000,
                 'search_time_ms': search_time * 1000,
-                'total_time_ms': total_time * 1000,
                 'results_count': len(results),
-                'bytes_processed': job_id.total_bytes_processed,
-                'slot_millis': job_id.slot_millis,
+                'bytes_processed': job.total_bytes_processed,
+                'slot_millis': job.slot_millis,
+                'min_similarity': results['cosine_score'].min() if len(results) > 0 else 0,
                 'avg_similarity': results['cosine_score'].mean() if len(results) > 0 else 0,
                 'max_similarity': results['cosine_score'].max() if len(results) > 0 else 0
             }
         else:
-            return {
+            logger.info(f"  Bytes processed: 0")
+            logger.info(f"  Slot milliseconds: 0")
+            base_metrics = {
                 'query': query_text,
+                'run_environment': run_environment,
+                'cache_hit': job.cache_hit,
                 'embedding_time_ms': embedding_time * 1000,
                 'search_time_ms': search_time * 1000,
-                'total_time_ms': total_time * 1000,
                 'results_count': len(results),
                 'bytes_processed': 0,
                 'slot_millis': 0,
+                'min_similarity': results['cosine_score'].min() if len(results) > 0 else 0,
                 'avg_similarity': results['cosine_score'].mean() if len(results) > 0 else 0,
                 'max_similarity': results['cosine_score'].max() if len(results) > 0 else 0
             }
+        
+        # Prepare results for both test types
 
+        
+        # Vector search only metrics
+        vector_search_metrics = {
+            **base_metrics,
+            'test_type': 'vector_search',
+            'explainability_time_ms': 0.0,  # No explainability in this test
+            'total_time_ms': vector_search_total * 1000
+        }
+        
+        # Complete pipeline metrics
+        complete_pipeline_metrics = {
+            **base_metrics,
+            'test_type': 'complete_pipeline',
+            'explainability_time_ms': explainability_time * 1000,
+            'total_time_ms': complete_pipeline_total * 1000
+        }
+        
+        return [vector_search_metrics, complete_pipeline_metrics]
         
     except Exception as e:
         logger.error(f"  Error: {e}")
         return None
-    
-    # Step 4: Execute semantic search explainability (CPU)
-    # try:
-    #     results, explain_time = execute_semantic_search_explainability(results, query_text)
-    
-    # except Exception as e:
-    #     logger.error(f"  Error: {e}")
-    #     return None
 
+def save_results_to_bigquery(results_list: list):
+    """Save latency test results to BigQuery"""
+    if not results_list:
+        logger.warning("No results to save")
+        return
+    
+    # Flatten the list (since each test returns 2 records)
+    flattened_results = []
+    for result in results_list:
+        if result:
+            if isinstance(result, list):
+                flattened_results.extend(result)
+            else:
+                flattened_results.append(result)
+    
+    if not flattened_results:
+        logger.warning("No valid results to save")
+        return
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(flattened_results)
+    
+    # # Add timestamp
+    # df['run_date'] = datetime.now()
+    
+    try:
+        # Upload to BigQuery
+        table_id = f"{project_id}.{dataset_id}.latency_test_results"
+        
+        # job_config = bigquery.LoadJobConfig(
+        #     write_disposition="WRITE_APPEND",
+        #     create_disposition="CREATE_IF_NEEDED"
+        # )
+        
+        job = pss_client.client.upload_dataframe(
+            df, table_id, if_exists="append"
+        )
+        # job.result()  # Wait for completion
+        
+        logger.info(f"Successfully saved {len(df)} test results to BigQuery table: {table_id}")
+        
+    except Exception as e:
+        logger.error(f"Failed to save results to BigQuery: {e}")
+        
+        # Fallback: save to JSON
+        timestamp = int(time.time())
+        backup_file = f"latency_test_backup_{timestamp}.json"
+        with open(backup_file, 'w') as f:
+            json.dump(flattened_results, f, indent=2, default=str)
+        logger.info(f"Results saved to backup file: {backup_file}")
 
-    
-    
-def run_comprehensive_latency_test():
+def run_comprehensive_latency_test(run_environment: str = "laptop"):
     """Run comprehensive latency testing across multiple queries"""
     logger.info("\n" + "="*60)
     logger.info("COMPREHENSIVE LATENCY TEST")
+    logger.info(f"Environment: {run_environment}")
     logger.info("="*60)
     
+    # Create table if it doesn't exist
+    create_latency_table()
+    
+    # since these queries were tested before adding explainability, google returned cached results
+    # test_queries = [
+    #     "artificial intelligence machine learning neural networks",
+    #     "renewable energy solar photovoltaic efficiency optimization",
+    #     "autonomous vehicles self-driving navigation lidar sensors",
+    #     "quantum computing quantum bits entanglement algorithms",
+    #     "medical devices diagnostic imaging signal processing",
+    #     "blockchain cryptocurrency distributed ledger consensus",
+    #     "biotechnology genetic engineering CRISPR gene editing",
+    #     "robotics automation control systems manufacturing",
+    #     "cybersecurity encryption authentication network security",
+    #     "nanotechnology materials science molecular engineering"
+    # ]
     test_queries = [
-        "artificial intelligence machine learning neural networks",
-        "renewable energy solar photovoltaic efficiency optimization",
-        "autonomous vehicles self-driving navigation lidar sensors",
-        "quantum computing quantum bits entanglement algorithms",
-        "medical devices diagnostic imaging signal processing",
-        "blockchain cryptocurrency distributed ledger consensus",
-        "biotechnology genetic engineering CRISPR gene editing",
-        "robotics automation control systems manufacturing",
-        "cybersecurity encryption authentication network security",
-        "nanotechnology materials science molecular engineering"
+             "optical fiber communication networks wavelength division multiplexing",
+            "battery thermal management systems electric vehicle cooling",
+            "CRISPR gene editing therapeutic applications protein engineering",
+            "carbon nanotube composite materials strength enhancement",
+            "millimeter wave antenna design 5G wireless communication",
+            "photovoltaic cell efficiency perovskite semiconductor materials",
+            "robotic surgical instruments haptic feedback control systems",
+            "blockchain consensus mechanisms proof of stake validation",
+            "quantum error correction topological qubits fault tolerance",
+            "microfluidic devices lab on chip diagnostic biosensors"
     ]
     
-    results = []
+    all_results = []
     
     for query in test_queries:
-        result = test_single_query(query)
+        result = test_single_query(query, run_environment=run_environment)
         if result:
-            results.append(result)
+            all_results.append(result)
         time.sleep(1)  # Brief pause between queries
     
-    if results:
-        analyze_results(results)
-        return results
+    if all_results:
+        # Save to BigQuery
+        save_results_to_bigquery(all_results)
+        
+        # Still run analysis for immediate feedback
+        analyze_results(all_results)
+        return all_results
     else:
         logger.info("No successful test results to analyze")
         return []
 
-def analyze_results(results):
+def analyze_results(results_list):
     """Analyze and summarize test results"""
-    df = pd.DataFrame(results)
+    # Flatten results for analysis
+    flattened_results = []
+    for result in results_list:
+        if result:
+            if isinstance(result, list):
+                flattened_results.extend(result)
+            else:
+                flattened_results.append(result)
+    
+    df = pd.DataFrame(flattened_results)
+    
+    # Separate analysis by test type
+    vector_search_df = df[df['test_type'] == 'vector_search']
+    complete_pipeline_df = df[df['test_type'] == 'complete_pipeline']
     
     logger.info("\n" + "="*60)
     logger.info("PERFORMANCE ANALYSIS SUMMARY")
     logger.info("="*60)
     
-    logger.info(f"\nLATENCY METRICS:")
-    logger.info(f"  Average total latency: {df['total_time_ms'].mean():.0f}ms")
-    logger.info(f"  Median total latency: {df['total_time_ms'].median():.0f}ms")
-    logger.info(f"  95th percentile latency: {df['total_time_ms'].quantile(0.95):.0f}ms")
-    logger.info(f"  Min latency: {df['total_time_ms'].min():.0f}ms")
-    logger.info(f"  Max latency: {df['total_time_ms'].max():.0f}ms")
+    if not vector_search_df.empty:
+        logger.info(f"\nVECTOR SEARCH ONLY PERFORMANCE:")
+        logger.info(f"  Average total latency: {vector_search_df['total_time_ms'].mean():.0f}ms")
+        logger.info(f"  95th percentile latency: {vector_search_df['total_time_ms'].quantile(0.95):.0f}ms")
+        logger.info(f"  Average embedding time: {vector_search_df['embedding_time_ms'].mean():.0f}ms")
+        logger.info(f"  Average search time: {vector_search_df['search_time_ms'].mean():.0f}ms")
     
-    logger.info(f"\nCOMPONENT BREAKDOWN:")
-    logger.info(f"  Average embedding time: {df['embedding_time_ms'].mean():.0f}ms")
-    logger.info(f"  Average search time: {df['search_time_ms'].mean():.0f}ms")
-    logger.info(f"  Embedding % of total: {(df['embedding_time_ms'].mean() / df['total_time_ms'].mean() * 100):.1f}%")
-    logger.info(f"  Search % of total: {(df['search_time_ms'].mean() / df['total_time_ms'].mean() * 100):.1f}%")
+    if not complete_pipeline_df.empty:
+        logger.info(f"\nCOMPLETE PIPELINE PERFORMANCE:")
+        logger.info(f"  Average total latency: {complete_pipeline_df['total_time_ms'].mean():.0f}ms")
+        logger.info(f"  95th percentile latency: {complete_pipeline_df['total_time_ms'].quantile(0.95):.0f}ms")
+        logger.info(f"  Average explainability time: {complete_pipeline_df['explainability_time_ms'].mean():.0f}ms")
+        logger.info(f"  Explainability overhead: {(complete_pipeline_df['explainability_time_ms'].mean() / complete_pipeline_df['total_time_ms'].mean() * 100):.1f}%")
     
-    logger.info(f"\nRESULT QUALITY:")
-    logger.info(f"  Average results per query: {df['results_count'].mean():.1f}")
-    logger.info(f"  Average similarity score: {df['avg_similarity'].mean():.3f}")
-    logger.info(f"  Max similarity score: {df['max_similarity'].mean():.3f}")
-    
-    logger.info(f"\nRESOURCE USAGE:")
-    logger.info(f"  Average bytes processed: {df['bytes_processed'].mean():,.0f}")
-    logger.info(f"  Average slot milliseconds: {df['slot_millis'].mean():,.0f}")
-    
-    # Performance benchmarks
-    fast_queries = len(df[df['total_time_ms'] < 500])
-    medium_queries = len(df[(df['total_time_ms'] >= 500) & (df['total_time_ms'] < 1000)])
-    slow_queries = len(df[df['total_time_ms'] >= 1000])
-    
-    logger.info(f"\nPERFORMANCE DISTRIBUTION:")
-    logger.info(f"  Sub-500ms queries: {fast_queries}/{len(df)} ({fast_queries/len(df)*100:.0f}%)")
-    logger.info(f"  500ms-1s queries: {medium_queries}/{len(df)} ({medium_queries/len(df)*100:.0f}%)")
-    logger.info(f"  >1s queries: {slow_queries}/{len(df)} ({slow_queries/len(df)*100:.0f}%)")
+    if not df.empty:
+        logger.info(f"\nRESOURCE USAGE:")
+        logger.info(f"  Average bytes processed: {df['bytes_processed'].mean():,.0f}")
+        logger.info(f"  Average slot milliseconds: {df['slot_millis'].mean():,.0f}")
+        logger.info(f"  Average similarity score: {df['avg_similarity'].mean():.3f}")
     
     return df
-
-def test_concurrent_performance(num_concurrent=3):
-    """Test concurrent query performance (simplified simulation)"""
-    logger.info(f"\nTesting concurrent performance with {num_concurrent} queries...")
-    
-    concurrent_queries = [
-        "artificial intelligence deep learning",
-        "renewable energy systems",
-        "quantum computing applications"
-    ][:num_concurrent]
-    
-    start_time = time.time()
-    results = []
-    
-    for query in concurrent_queries:
-        result = test_single_query(query)
-        if result:
-            results.append(result)
-    
-    total_concurrent_time = time.time() - start_time
-    
-    logger.info(f"\nCONCURRENT PERFORMANCE:")
-    logger.info(f"  Total time for {num_concurrent} queries: {total_concurrent_time*1000:.0f}ms")
-    logger.info(f"  Average time per query: {total_concurrent_time/num_concurrent*1000:.0f}ms")
-    
-    return results
 
 def main():
     """Main function to run latency tests"""
     logger.info("Patent Semantic Search - Latency Testing")
     logger.info("="*50)
     
-    query_text = "Machine learning optimization"
-    test_single_query(query_text)
-    # Run comprehensive test
-    # results = run_comprehensive_latency_test()
+    # Determine run environment (you can modify this)
+    run_environment = "laptop"  # Change to "kaggle" when running on Kaggle
+
+    # query_text = "Machine learning"
+    # test_single_query(query_text)
     
-    # # Test concurrent performance
+    # Run comprehensive test
+    results = run_comprehensive_latency_test(run_environment=run_environment)
+    
+    # Test concurrent performance (optional)
     # test_concurrent_performance()
     
-    # # Save results
-    # if results:
-    #     timestamp = int(time.time())
-    #     results_file = f"latency_test_results_{timestamp}.json"
-        
-    #     with open(results_file, 'w') as f:
-    #         json.dump(results, f, indent=2)
-        
-    #     logger.info(f"\nResults saved to: {results_file}")
-    
-    # logger.info("\nLatency testing complete!")
+    logger.info("\nLatency testing complete!")
+    logger.info("Results saved to BigQuery for visualization")
 
 if __name__ == "__main__":
     main()
