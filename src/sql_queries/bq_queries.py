@@ -821,8 +821,8 @@ efficiency_across_partition_query = """
     SELECT
         run_environment,
         test_type,
-        ROUND(AVG(search_time_ms) / 60, 2) as avg_search_time_sec,
-        ROUND(AVG(bytes_processed) / 1024 / 1024 / 1024) as avg_bytes_processed_gb,
+        ROUND(AVG(search_time_ms / 1000), 2) as avg_search_time_sec,
+        ROUND(AVG(bytes_processed / 1024 / 1024 / 1024)) as avg_bytes_processed_gb,
         AVG(results_count) as avg_results
     FROM `{project_id}.{dataset_id}.{partition_pruned_table}`
     WHERE cache_hit = FALSE  -- Only non-cached results
