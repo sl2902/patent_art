@@ -42,7 +42,7 @@ def dataset_size_table():
         publication_table=publication_table,
     )
     
-    logger.info("Running query for summary statistics of the dataset")
+    # logger.info("Running query for summary statistics of the dataset")
     return client.query_to_dataframe(qry)
 
 def country_wise_breakdown(top_n: int = 10):
@@ -55,7 +55,7 @@ def country_wise_breakdown(top_n: int = 10):
         top_n=top_n,
     )
     
-    logger.info("Running query for country-wise publications")
+    # logger.info("Running query for country-wise publications")
     return client.query_to_dataframe(qry)
 
 def top_country_each_month():
@@ -67,7 +67,7 @@ def top_country_each_month():
         publication_table=publication_table,
     )
     
-    logger.info("Running query for top country each month")
+    # logger.info("Running query for top country each month")
     return client.query_to_dataframe(qry)
 
 def yoy_lang_growth_rate():
@@ -79,7 +79,7 @@ def yoy_lang_growth_rate():
         publication_table=publication_table,
     )
     
-    logger.info("Running query for YoY English language publication growth rate")
+    # logger.info("Running query for YoY English language publication growth rate")
     return client.query_to_dataframe(qry)
 
 def yoy_country_growth_rate(top_n: int = 10):
@@ -92,7 +92,7 @@ def yoy_country_growth_rate(top_n: int = 10):
         top_n=top_n,
     )
     
-    logger.info("Running query for YoY English language publication growth rate")
+    # logger.info("Running query for YoY English language publication growth rate")
     return client.query_to_dataframe(qry)
 
 def citations_top_countries(top_n: int = 10):
@@ -105,7 +105,7 @@ def citations_top_countries(top_n: int = 10):
         top_n=top_n,
     )
     
-    logger.info("Running query for citation patterns for top countries")
+    # logger.info("Running query for citation patterns for top countries")
     return client.query_to_dataframe(qry)
 
 def top_cpc(top_n: int = 10):
@@ -118,7 +118,7 @@ def top_cpc(top_n: int = 10):
         top_n=top_n,
     )
     
-    logger.info("Running query for top n CPCs")
+    # logger.info("Running query for top n CPCs")
     return client.query_to_dataframe(qry)
 
 def tech_area_cpc(top_n: int = 10):
@@ -131,7 +131,7 @@ def tech_area_cpc(top_n: int = 10):
         top_n=top_n,
     )
     
-    logger.info("Running query for Technology area analyis by CPC main class")
+    # logger.info("Running query for Technology area analyis by CPC main class")
     return client.query_to_dataframe(qry)
 
 def patent_flow():
@@ -143,7 +143,7 @@ def patent_flow():
         publication_table=publication_table,
     )
     
-    logger.info("Running query for Patent publication flow")
+    # logger.info("Running query for Patent publication flow")
     return client.query_to_dataframe(qry)
 
 def tech_convergence(top_n: int = 5):
@@ -156,7 +156,7 @@ def tech_convergence(top_n: int = 5):
         top_n=top_n,
     )
     
-    logger.info("Running query for Technology convergence analyis by CPC main class")
+    # logger.info("Running query for Technology convergence analyis by CPC main class")
     return client.query_to_dataframe(qry)
 
 # if __name__ == "__main__":
