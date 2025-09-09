@@ -760,3 +760,94 @@ OPTIONS(
     description = "Search comparison test results between semantic and keyword search"
 )
 """
+
+# Metric analysis queries
+latency_measurement_query = """
+    SELECT 
+        test_type,
+        run_environment,
+        COUNT(*) as query_count,
+        MIN(total_time_ms) as min_latency,
+        APPROX_QUANTILES(total_time_ms, 100)[OFFSET(50)] as median_latency,
+        AVG(total_time_ms) as mean_latency,
+        MAX(total_time_ms) as max_latency,
+        STDDEV(total_time_ms) as std_dev_latency,
+        APPROX_QUANTILES(total_time_ms, 100)[OFFSET(90)] as p90_latency,
+        APPROX_QUANTILES(total_time_ms, 100)[OFFSET(95)] as p95_latency,
+        APPROX_QUANTILES(total_time_ms, 100)[OFFSET(99)] as p99_latency
+    FROM `{project_id}.{dataset_id}.{latency_table}`
+    WHERE cache_hit = False
+    GROUP BY test_type, run_environment
+    ORDER BY test_type, run_environment;
+"""
+
+# Semantic versus Keyword search comparison analysis
+semantic_vs_keyword_analysis_query = """
+    SELECT 
+        test_type,
+        run_environment,
+        COUNT(*) as query_count,
+        AVG(total_time_ms) as avg_search_time_ms,
+        AVG(semantic_results_count) as avg_semantic_results,
+        AVG(keyword_results_count) as avg_keyword_results,
+        AVG(overlap_count) as avg_overlap,
+        AVG(semantic_unique_count) as avg_semantic_unique,
+        AVG(keyword_unique_count) as avg_keyword_unique,
+        AVG(semantic_discovery_rate) as avg_discovery_rate
+FROM `{project_id}.{dataset_id}.{search_comparison_table}`
+GROUP BY test_type, run_environment
+ORDER BY test_type, run_environment;
+"""
+
+# Discovery rate analysis
+discovery_rate_analysis_query = """
+    SELECT 
+        run_environment,
+        test_type,
+        AVG(total_time_ms) as avg_time_ms,
+        SUM(semantic_results_count) as total_semantic_results,
+        SUM(keyword_results_count) as total_keyword_results,
+        SUM(overlap_count) as total_overlap,
+        SUM(semantic_unique_count) as total_semantic_unique,
+        SUM(keyword_unique_count) as total_keyword_unique,
+        ROUND(SUM(semantic_unique_count) / SUM(semantic_results_count) * 100, 1) as overall_discovery_rate
+FROM `{project_id}.{dataset_id}.{search_comparison_table}`
+--WHERE test_type = 'keyword_search'
+GROUP BY run_environment, test_type;
+"""
+
+# Compare efficiency across date ranges
+efficiency_across_partition_query = """
+    SELECT
+        run_environment,
+        test_type,
+        ROUND(AVG(search_time_ms) / 60, 2) as avg_search_time_sec,
+        ROUND(AVG(bytes_processed) / 1024 / 1024 / 1024) as avg_bytes_processed_gb,
+        AVG(results_count) as avg_results
+    FROM `{project_id}.{dataset_id}.{partition_pruned_table}`
+    WHERE cache_hit = FALSE  -- Only non-cached results
+    GROUP BY run_environment, test_type, date_range_months
+    ORDER BY date_range_months;
+"""
+
+# Calculate bytes used and time reduction percentages
+calculate_bytes_and_time_reduction_query = """
+    WITH baseline AS (
+    SELECT run_environment,
+            AVG(bytes_processed) as full_scan_bytes,
+            AVG(search_time_ms) as full_scan_time
+    FROM `patents_semantic_search.partition_pruning_results`
+    WHERE test_type = 'full_scan' AND cache_hit = FALSE
+    GROUP BY run_environment
+    )
+    SELECT
+        p.run_environment,
+        p.test_type,
+        ROUND((1 - AVG(p.bytes_processed) / b.full_scan_bytes) * 100, 1) as bytes_reduction_pct,
+        ROUND((1 - AVG(p.search_time_ms) / b.full_scan_time) * 100, 1) as time_reduction_pct
+    FROM `{project_id}.{dataset_id}.{partition_pruned_table}` p
+    JOIN baseline b ON p.run_environment = b.run_environment
+    WHERE p.cache_hit = FALSE
+    GROUP BY p.run_environment, p.test_type, date_range_months, b.full_scan_bytes, b.full_scan_time
+    ORDER BY date_range_months
+"""
