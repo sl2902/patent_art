@@ -346,7 +346,7 @@ def create_discovery_comparison_dashboard(df: pd.DataFrame):
     
     return fig
 
-def create_discoverability_visualization(df: pd.DataFrame):
+def create_discoverability_visualization():
     """
     Convenience function to create BigQuery AI visualization from raw data
     """
