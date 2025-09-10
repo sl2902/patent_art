@@ -205,14 +205,14 @@ def create_discovery_comparison_dashboard(df: pd.DataFrame):
             - total_semantic_results, total_keyword_results: result counts
             - total_overlap: overlapping results between methods
             - total_semantic_unique, total_keyword_unique: unique results
-            - overall_discovery_rate: discovery rate percentage
+            - overall_discovery_rate: uniqueness search percentage
     """
     
     # Create subplot structure: 2x2 grid
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=(
-            'Discovery Rate: Unique Patents Found',
+            'Semantic Search Uniqueness: Non-Overlapping Results',
             'Search Performance by Environment', 
             'Total Results Comparison',
             'Discovery Overlap Analysis'
@@ -227,7 +227,7 @@ def create_discovery_comparison_dashboard(df: pd.DataFrame):
     semantic_data = df[df['test_type'] == 'vector_search'].iloc[0]  # Both environments have same results
     keyword_data = df[df['test_type'] == 'keyword_search'].iloc[0]
     
-    # Panel 1: Discovery Rate Comparison (Key Finding)
+    # Panel 1: Semantic Search Uniqueness Percentage Comparison (Key Finding)
     discovery_methods = ['Semantic Search', 'Keyword Search']
     unique_counts = [int(semantic_data['total_semantic_unique']), int(keyword_data['total_keyword_unique'])]
     discovery_colors = ['#1f77b4', '#ff7f0e']
@@ -333,7 +333,7 @@ def create_discovery_comparison_dashboard(df: pd.DataFrame):
     
     # Add annotation for key insight
     fig.add_annotation(
-        text="<b>Key Insight:</b> 98.3% unique discovery rate<br>shows complementary search approaches",
+        text="<b>Key Insight:</b> 98.3% semantic search uniqueness<br>shows complementary search approaches",
         xref="paper", yref="paper",
         x=0.21, y=0.98,
         showarrow=False,
