@@ -5,15 +5,26 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
-from typing import Any, List, Dict, Tuple
+from typing import Any, List, Dict, Optional, Tuple
 from loguru import logger
-from IPython.display import display, HTML
 from generate_patent_metrics_analysis import (
     latency_measurement,
     partition_pruning_efficiency_measurement,
     bytes_and_time_reduction_measurement,
     discovery_rate_measurement
 )
+
+try:
+    import streamlit as st
+    HAS_STREAMLIT = True
+except ImportError:
+    HAS_STREAMLIT = False
+
+try:
+    from IPython.display import display, HTML
+    HAS_KAGGLE = True
+except ImportError:
+    HAS_KAGGLE = False
 
 
 
@@ -183,7 +194,7 @@ def create_bigquery_partition_efficiency(efficiency_df: pd.DataFrame, reduction_
     
     return fig
 
-def create_bigquery_visualization():
+def create_bigquery_visualization() -> Optional[go.Figure]:
     """
     Convenience function to create BigQuery AI visualization from raw data
     """
@@ -191,7 +202,10 @@ def create_bigquery_visualization():
     reduction_df = bytes_and_time_reduction_measurement()
     
     fig = create_bigquery_partition_efficiency(efficiency_df, reduction_df)
-    fig.show()
+    if HAS_KAGGLE:
+        fig.show()
+    else:
+        return fig
 
 def create_discovery_comparison_dashboard(df: pd.DataFrame):
     """
@@ -346,14 +360,18 @@ def create_discovery_comparison_dashboard(df: pd.DataFrame):
     
     return fig
 
-def create_discoverability_visualization():
+def create_discoverability_visualization() -> Optional[go.Figure]:
     """
     Convenience function to create BigQuery AI visualization from raw data
     """
     df = discovery_rate_measurement()
-    
+
     fig = create_discovery_comparison_dashboard(df)
-    fig.show()
+    if HAS_KAGGLE:
+        fig.show()
+    else:
+        logger.info('else')
+        return fig
 
 
 def render_latency_chart(df):
@@ -422,6 +440,108 @@ def render_latency_chart(df):
     
     html += note_html + "</div>"
     display(HTML(html))
+
+def create_latency_visualization():
+    """
+    Convenience function to create BigQuery AI visualization from raw data
+    """
+    df = latency_measurement()
+
+    render_latency_chart(df)
+
+
+def render_latency_chart_streamlit(df: pd.DataFrame):
+    """Create a Plotly-based latency visualization for Streamlit"""
+    
+    # Ensure numeric
+    df["mean_latency"] = df["mean_latency"].astype(float)
+    df["median_latency"] = df["median_latency"].astype(float)
+    
+    # Create subplot
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=('Mean Latency Comparison', 'Median Latency Comparison'),
+        specs=[[{"type": "bar"}, {"type": "bar"}]],
+        horizontal_spacing=0.15
+    )
+    
+    # Prepare data
+    df['label'] = df['test_type'] + ' (' + df['run_environment'] + ')'
+    
+    # Color mapping based on performance
+    mean_min = df['mean_latency'].min()
+    median_min = df['median_latency'].min()
+    
+    mean_colors = ['green' if x == mean_min else 'red' if x == df['mean_latency'].max() else 'blue' 
+                   for x in df['mean_latency']]
+    median_colors = ['green' if x == median_min else 'red' if x == df['median_latency'].max() else 'blue' 
+                     for x in df['median_latency']]
+    
+    # Mean latency bars
+    fig.add_trace(go.Bar(
+        name='Mean Latency',
+        x=df['label'],
+        y=df['mean_latency'],
+        text=[f'{val:.0f} ms' for val in df['mean_latency']],
+        textposition='auto',
+        marker_color=mean_colors,
+        showlegend=False
+    ), row=1, col=1)
+    
+    # Median latency bars  
+    fig.add_trace(go.Bar(
+        name='Median Latency',
+        x=df['label'],
+        y=df['median_latency'],
+        text=[f'{val:.0f} ms' for val in df['median_latency']],
+        textposition='auto',
+        marker_color=median_colors,
+        showlegend=False
+    ), row=1, col=2)
+    
+    # Update layout
+    fig.update_layout(
+        title={
+            'text': 'Latency Performance Analysis<br><sub>Mean vs Median Response Times Across Environments</sub>',
+            'x': 0.5,
+            'font': {'size': 16}
+        },
+        height=500,
+        showlegend=False
+    )
+    
+    # Update axes
+    fig.update_xaxes(title_text="Test Configuration", row=1, col=1)
+    fig.update_xaxes(title_text="Test Configuration", row=1, col=2)
+    fig.update_yaxes(title_text="Latency (ms)", row=1, col=1)
+    fig.update_yaxes(title_text="Latency (ms)", row=1, col=2)
+    
+    # Rotate x-axis labels for better readability
+    fig.update_xaxes(tickangle=45)
+    
+    st.plotly_chart(fig, width='content')
+    
+    # Add performance summary table
+    st.subheader("Performance Summary")
+    
+    # Create summary metrics
+    summary_data = []
+    for _, row in df.iterrows():
+        summary_data.append({
+            'Configuration': row['label'],
+            'Mean Latency (ms)': f"{row['mean_latency']:.0f}",
+            'Median Latency (ms)': f"{row['median_latency']:.0f}",
+            'Mean vs Fastest': f"{row['mean_latency']/mean_min:.2f}x" if row['mean_latency'] != mean_min else "Fastest",
+            'Median vs Fastest': f"{row['median_latency']/median_min:.2f}x" if row['median_latency'] != median_min else "Fastest"
+        })
+    
+    summary_df = pd.DataFrame(summary_data)
+    st.dataframe(summary_df, width='content')
+
+def create_latency_visualization_streamlit():
+    """Streamlit version of latency visualization"""
+    df = latency_measurement()
+    render_latency_chart_streamlit(df)
     
 
 
@@ -436,13 +556,6 @@ def render_latency_chart(df):
 # ]
 # df = pd.DataFrame(data)
 
-def create_latency_visualization():
-    """
-    Convenience function to create BigQuery AI visualization from raw data
-    """
-    df = latency_measurement()
-
-    render_latency_chart(df)
 
 
 
