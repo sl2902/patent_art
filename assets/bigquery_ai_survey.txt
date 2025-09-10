@@ -1,0 +1,31 @@
+BigQuery AI Hackathon Survey
+
+1. Please tell us how many months of experience with BigQuery AI each team member has.
+0
+
+2. Please tell us how many months of experience with Google Cloud each team member has.
+12 months +
+
+3. We'd love to hear from you and your experience in working with the technology during this hackathon, positive or negative. Please provide any feedback on your experience with BigQuery AI.
+
+Embedding Generation Performance Bottleneck
+Initial ML.GENERATE_EMBEDDING Challenges: The biggest technical hurdle was BigQuery's native embedding generation performance. Initial attempts using ML.GENERATE_EMBEDDING on 2013-2014 (6.6M) patent data revealed severe limitations:
+
+This was tested on Kaggle
+
+- Monitoring Issues: Jobs ran for 30+ minutes with no meaningful progress tracking beyond basic UI status
+- Performance Variability: Batch processing showed extreme variation (7-70 minutes per 5,000 record batch)
+- Scale Reality: Processing 48K records (one day) took 5 hours across 10 batches, averaging 30 minutes per batch
+- Cost-Performance Trade-off: At ~0.4 seconds per embedding, processing 2.9M patents would require 14 days
+
+Implementation Iterations:
+
+- First attempt: Single large job (2013-2014) (6.6M) with no progress tracking - abandoned after 30 minutes
+- Second iteration: Stored procedure with 2,000 record batches - still too slow with no visibility
+- Third iteration: Added BigQuery logging, increased to 5,000 record batches, reduced scope to 1 day (48K); the job completed in 5 hours
+- Data Quality Issue: Initial approach using LIMIT + OFFSET without ORDER BY created duplicates; resolved with ROW_NUMBER() windowing
+
+Kaggle GPU Solution: The breakthrough came with Sentence Transformers on Kaggle GPU, processing 2.9M records (14GB) in 6.5 hours using 5,000-record batches - a dramatic improvement that made the project feasible.
+
+BigQuery Edition Limitations
+Vector Index Discovery: After implementing comprehensive vector indexing with 100% coverage on the 14.4GB dataset, we discovered that BigQuery Standard edition (free tier) supports VECTOR_SEARCH creation functionality but restricts vector index utilization to Enterprise+ tiers. This limitation highlights critical production planning considerations for BigQuery AI deployments.
