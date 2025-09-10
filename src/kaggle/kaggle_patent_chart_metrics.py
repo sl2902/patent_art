@@ -189,8 +189,8 @@ def create_bigquery_partition_efficiency(efficiency_df: pd.DataFrame, reduction_
     )
     
     # Add grid for better readability
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    # fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    # fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     
     return fig
 
@@ -370,7 +370,6 @@ def create_discoverability_visualization() -> Optional[go.Figure]:
     if HAS_KAGGLE:
         fig.show()
     else:
-        logger.info('else')
         return fig
 
 
