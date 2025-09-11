@@ -529,7 +529,8 @@ def render_latency_chart_streamlit(df: pd.DataFrame):
         marker_color=colors_mean,
         text=mean_texts,
         textposition='auto',
-        showlegend=True
+        showlegend=True,
+        hovertemplate='<b>%{y}</b><br>%{text}<extra></extra>'
     ))
     
     # Add median bars  
@@ -541,7 +542,8 @@ def render_latency_chart_streamlit(df: pd.DataFrame):
         marker_color=colors_median,
         text=median_texts,
         textposition='auto',
-        showlegend=True
+        showlegend=True,
+        hovertemplate='<b>%{y}</b><br>%{text}<extra></extra>'
     ))
     
     # Update layout to match original design
