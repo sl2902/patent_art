@@ -378,8 +378,12 @@ def render_latency_chart(df):
     df["mean_latency"] = df["mean_latency"].astype(float)
     df["median_latency"] = df["median_latency"].astype(float)
     
-    max_val = df[["mean_latency", "median_latency"]].max().max()
-    min_val = df[["mean_latency", "median_latency"]].min().min()
+    # max_val = df[["mean_latency", "median_latency"]].max().max()
+    # min_val = df[["mean_latency", "median_latency"]].min().min()
+    mean_max = df['mean_latency'].max()
+    mean_min = df['mean_latency'].min()
+    median_max = df['median_latency'].max()
+    median_min = df['median_latency'].min()
     
     html = """
     <style>
@@ -408,29 +412,29 @@ def render_latency_chart(df):
           <div class="bar-group">
             <div class="metric-label">Mean:</div>
             <div class="bar-container">
-              <div class="bar {'green' if row['mean_latency']==min_val else 'red' if row['mean_latency']==max_val else 'blue'}"
-                   style="width:{(row['mean_latency']/max_val)*100}%;">
+              <div class="bar {'green' if row['mean_latency']==mean_min else 'red' if row['mean_latency']==mean_max else 'blue'}"
+                   style="width:{(row['mean_latency']/mean_max)*100}%;">
                    {row['mean_latency']:.0f} ms
               </div>
             </div>
-            <div class="value">{'Fastest' if row['mean_latency']==min_val else f"{(row['mean_latency']/min_val):.2f}× slower"}</div>
+            <div class="value">{'Fastest' if row['mean_latency']==mean_min else f"{(row['mean_latency']/mean_min):.2f}× slower"}</div>
           </div>
           <div class="bar-group">
             <div class="metric-label">Median:</div>
             <div class="bar-container">
-              <div class="bar {'green' if row['median_latency']==min_val else 'red' if row['median_latency']==max_val else 'blue'}"
-                   style="width:{(row['median_latency']/max_val)*100}%;">
+              <div class="bar {'green' if row['median_latency']==median_min else 'red' if row['median_latency']==median_max else 'blue'}"
+                   style="width:{(row['median_latency']/median_max)*100}%;">
                    {row['median_latency']:.0f} ms
               </div>
             </div>
-            <div class="value">{'Fastest' if row['median_latency']==min_val else f"{(row['median_latency']/min_val):.2f}× slower"}</div>
+            <div class="value">{'Fastest' if row['median_latency']==median_min else f"{(row['median_latency']/median_max):.2f}× slower"}</div>
           </div>
         </div>
         """
         
     note_html = """
     <div style="font-size:14px; margin-top:12px; color:#555; max-width:800px;">
-      <strong>Note:</strong> Bars are scaled relative to the <em>fastest observed latency</em> across all tests.
+      <strong>Note:</strong> Bars are scaled relative to the <em> slowest performance </em> in each category (mean vs median).
       The fastest value is highlighted in <span style="color:green;font-weight:bold;">green</span> and labeled "Fastest".
       The slowest is highlighted in <span style="color:red;font-weight:bold;">red</span>.
       All other values show how many times slower they are compared to the fastest baseline.
@@ -448,94 +452,121 @@ def create_latency_visualization():
 
     render_latency_chart(df)
 
-
+    
 def render_latency_chart_streamlit(df: pd.DataFrame):
-    """Create a Plotly-based latency visualization for Streamlit"""
+    """Create a Plotly version that matches the Kaggle HTML chart design"""
+    df = latency_measurement()
     
     # Ensure numeric
     df["mean_latency"] = df["mean_latency"].astype(float)
     df["median_latency"] = df["median_latency"].astype(float)
     
-    # Create subplot
-    fig = make_subplots(
-        rows=1, cols=2,
-        subplot_titles=('Mean Latency Comparison', 'Median Latency Comparison'),
-        specs=[[{"type": "bar"}, {"type": "bar"}]],
-        horizontal_spacing=0.15
-    )
-    
-    # Prepare data
-    df['label'] = df['test_type'] + ' (' + df['run_environment'] + ')'
-    
-    # Color mapping based on performance
+    # Get min/max for scaling
+    mean_max = df['mean_latency'].max()
     mean_min = df['mean_latency'].min()
+    median_max = df['median_latency'].max()
     median_min = df['median_latency'].min()
     
-    mean_colors = ['green' if x == mean_min else 'red' if x == df['mean_latency'].max() else 'blue' 
-                   for x in df['mean_latency']]
-    median_colors = ['green' if x == median_min else 'red' if x == df['median_latency'].max() else 'blue' 
-                     for x in df['median_latency']]
+    # Create figure with subplots - one row per test configuration
+    fig = go.Figure()
     
-    # Mean latency bars
+    # Prepare data - create labels and organize by test configuration
+    df['config_label'] = df['test_type'] + ' (' + df['run_environment'] + ')'
+    
+    y_positions = []
+    mean_widths = []
+    median_widths = []
+    colors_mean = []
+    colors_median = []
+    labels = []
+    mean_texts = []
+    median_texts = []
+    
+    for i, (_, row) in enumerate(df.iterrows()):
+        base_y = len(df) - i  # Reverse order to match original
+        
+        # Mean bar
+        y_positions.extend([base_y + 0.2, base_y - 0.2])
+        mean_width = (row['mean_latency'] / mean_max) * 100
+        median_width = (row['median_latency'] / median_max) * 100
+        
+        mean_widths.extend([mean_width, 0])  # 0 for median placeholder
+        median_widths.extend([0, median_width])  # 0 for mean placeholder
+        
+        # Colors based on performance
+        mean_color = '#4caf50' if row['mean_latency'] == mean_min else '#e53935' if row['mean_latency'] == mean_max else '#2196f3'
+        median_color = '#4caf50' if row['median_latency'] == median_min else '#e53935' if row['median_latency'] == median_max else '#2196f3'
+        
+        colors_mean.extend([mean_color, 'rgba(0,0,0,0)'])
+        colors_median.extend(['rgba(0,0,0,0)', median_color])
+        
+        # Labels and text
+        labels.extend([f"{row['config_label']} - Mean", f"{row['config_label']} - Median"])
+        # mean_text = f"{row['mean_latency']:.0f} ms ({'Fastest' if row['mean_latency'] == mean_min else str(round(row['mean_latency']/mean_min, 2)) + '× slower'})"
+        if row["mean_latency"] == mean_min:
+            status = "Fastest"
+        else:
+            status = f"{row['mean_latency'] / mean_min:.2f}× slower"
+
+        mean_text = f"{row['mean_latency']:.0f} ms ({status})"
+
+        # median_text = f"{row['median_latency']:.0f} ms ({'Fastest' if row['median_latency'] == median_min else str(round(row["median_latency"]/median_min, 2)) + '× slower'})"
+        if row["median_latency"] == median_min:
+            status = "Fastest"
+        else:
+            status = f"{row['median_latency'] / median_min:.2f}× slower"
+
+        median_text = f"{row['median_latency']:.0f} ms ({status})"
+        mean_texts.extend([mean_text, ''])
+        median_texts.extend(['', median_text])
+    
+    # Add mean bars
     fig.add_trace(go.Bar(
         name='Mean Latency',
-        x=df['label'],
-        y=df['mean_latency'],
-        text=[f'{val:.0f} ms' for val in df['mean_latency']],
+        y=labels,
+        x=mean_widths,
+        orientation='h',
+        marker_color=colors_mean,
+        text=mean_texts,
         textposition='auto',
-        marker_color=mean_colors,
-        showlegend=False
-    ), row=1, col=1)
+        showlegend=True
+    ))
     
-    # Median latency bars  
+    # Add median bars  
     fig.add_trace(go.Bar(
         name='Median Latency',
-        x=df['label'],
-        y=df['median_latency'],
-        text=[f'{val:.0f} ms' for val in df['median_latency']],
+        y=labels,
+        x=median_widths,
+        orientation='h',
+        marker_color=colors_median,
+        text=median_texts,
         textposition='auto',
-        marker_color=median_colors,
-        showlegend=False
-    ), row=1, col=2)
+        showlegend=True
+    ))
     
-    # Update layout
+    # Update layout to match original design
     fig.update_layout(
-        title={
-            'text': 'Latency Performance Analysis<br><sub>Mean vs Median Response Times Across Environments</sub>',
-            'x': 0.5,
-            'font': {'size': 16}
-        },
-        height=500,
-        showlegend=False
+        title='Latency Comparison - Mean vs Median<br><sub>Bars scaled relative to slowest performance in each category</sub>',
+        xaxis_title='Relative Performance (%)',
+        yaxis_title='Test Configuration',
+        height=400 + len(df) * 50,  # Dynamic height based on data
+        barmode='overlay',
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
     # Update axes
-    fig.update_xaxes(title_text="Test Configuration", row=1, col=1)
-    fig.update_xaxes(title_text="Test Configuration", row=1, col=2)
-    fig.update_yaxes(title_text="Latency (ms)", row=1, col=1)
-    fig.update_yaxes(title_text="Latency (ms)", row=1, col=2)
+    fig.update_xaxes(range=[0, 105])  # Slight padding beyond 100%
+    fig.update_yaxes(categoryorder='array', categoryarray=labels)
     
-    # Rotate x-axis labels for better readability
-    fig.update_xaxes(tickangle=45)
+    st.plotly_chart(fig, use_container_width=True)
     
-    st.plotly_chart(fig, width='content')
-    
-    # Add performance summary table
-    st.subheader("Performance Summary")
-    
-    # Create summary metrics
-    summary_data = []
-    for _, row in df.iterrows():
-        summary_data.append({
-            'Configuration': row['label'],
-            'Mean Latency (ms)': f"{row['mean_latency']:.0f}",
-            'Median Latency (ms)': f"{row['median_latency']:.0f}",
-            'Mean vs Fastest': f"{row['mean_latency']/mean_min:.2f}x" if row['mean_latency'] != mean_min else "Fastest",
-            'Median vs Fastest': f"{row['median_latency']/median_min:.2f}x" if row['median_latency'] != median_min else "Fastest"
-        })
-    
-    summary_df = pd.DataFrame(summary_data)
-    st.dataframe(summary_df, width='content')
+    # Add the explanatory note
+    st.markdown("""
+    **Note:** Bars are scaled relative to the slowest performance in each category (mean vs median). 
+    The fastest value is highlighted in green and labeled "Fastest". 
+    The slowest is highlighted in red. All other values show how many times slower they are compared to the fastest baseline.
+    """)
 
 def create_latency_visualization_streamlit():
     """Streamlit version of latency visualization"""
