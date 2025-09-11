@@ -493,6 +493,13 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs",
     
     y_col = "cpc_code" if "cpc_code" in df.columns else df.columns[1]
     x_col = column_name if column_name in df.columns else df.columns[1]
+
+    if title_prefix == "Technology Convergence":
+        custom_text = [f"{val/1000:.1f}K" for val in df[x_col]]
+        hover_text = '<b>Avg# of Patents%=%{x}</b><br><b>Classification=%{y}<extra></extra>'
+    else:
+        custom_text = [f"{val:.2f}%" for val in df[x_col]]
+        hover_text = '<b>Share%=%{x}</b><br><b>Classification=%{y}<extra></extra>'
     
     if column_name == "cpc_share":
         df = df[:top_k]
@@ -500,7 +507,7 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs",
         df,
         x=x_col,
         y=y_col,
-        text=x_col,
+        text=custom_text,
         labels={y_col: "Classification", x_col: "Share %"} 
             if title_prefix != "Technology Convergence" 
             else {y_col: "Classification", x_col: "Avg # of Patents"},
@@ -508,12 +515,6 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs",
         orientation="h"
     )
     
-    if title_prefix == "Technology Convergence":
-        custom_text = [f"{val/1000:.1f}K" for val in df[x_col]]
-        hover_text = '<b>Avg# of Patents%=%{x}</b><br><b>Classification=%{y}<extra></extra>'
-    else:
-        custom_text = [f"{val:.2f}%" for val in df[x_col]]
-        hover_text = '<b>Share%=%{x}</b><br><b>Classification=%{y}<extra></extra>'
     # Trace styling
     if title_prefix == "Technology Convergence":
         fig.update_traces(
