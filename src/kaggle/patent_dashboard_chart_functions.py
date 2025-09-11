@@ -135,6 +135,11 @@ def display_metrics_html(summary_df: pd.DataFrame):
         ]),
         ("Content Analysis", [
             ("Avg Abstract Length", f"{row['avg_abstract_length']:.1f}")
+        ]),
+        ("Corporate Patent Code Coverage (CPC)", [
+            ("Total Patents with CPC", f"{row['patents_with_codes']:,}"),
+            ("Coverage", f"{row['coverage_pct']:.1f}%"),
+            ("Average Codes Per Patent", f"{row['avg_codes_per_patent']:.1f}%")
         ])
     ]
 
