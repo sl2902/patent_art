@@ -22,7 +22,12 @@ TECH_AREAS = ['All', 'Human Necessities', 'Operations & Transport',
 PATENTS_TABLE_NAME = "patents_cpc_flat"
 
 # Configure page
-st.set_page_config(page_title="Patent Semantic Search", layout="wide")
+st.set_page_config(
+    page_title="🔍 Semantic Sarch",
+    page_icon="🔍",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 # Title and description
 st.title("🔍 Patent Semantic Search & Discovery")

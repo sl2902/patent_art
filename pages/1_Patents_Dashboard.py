@@ -13,7 +13,7 @@ from generate_patent_analysis import (
 )
 
 st.set_page_config(
-    page_title="Patent Analytics Dashboard",
+    page_title="📊 Patents Dashboard",
     page_icon="⚗️",
     layout="wide",
     initial_sidebar_state="expanded"
