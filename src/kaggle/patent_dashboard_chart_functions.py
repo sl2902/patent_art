@@ -501,8 +501,6 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs",
         custom_text = [f"{val:.2f}%" for val in df[x_col]]
         hover_text = '<b>Share%=%{x}</b><br><b>Classification=%{y}<extra></extra>'
     
-    if column_name == "cpc_share":
-        df = df[:top_k]
     fig = px.bar(
         df,
         x=x_col,
@@ -775,7 +773,7 @@ def create_patent_dashboard_demo():
             fig.show()
     
     # logger.info("3. Loading CPC Data...")
-    cpc_df = load_cpc_data()
+    cpc_df = load_cpc_data(top_n=5)
     if not cpc_df.empty:
         # logger.info(f"   Loaded CPC data with {len(cpc_df)} records")
         fig = create_cpc_bar_chart(cpc_df, column_name="cpc_share", title_prefix="Top 5 CPCs")
