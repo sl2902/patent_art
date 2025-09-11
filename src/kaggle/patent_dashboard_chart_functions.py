@@ -508,10 +508,12 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs",
         orientation="h"
     )
     
-    if column_name != 'avg_recent_patents':
-        texttemplate = '%{text:.2f}%'
+    if title_prefix == "Technology Convergence":
+        custom_text = [f"{val/1000:.1f}K" for val in df[x_col]]
+        hover_text = '<b>Avg# of Patents%=%{x}</b><br><b>Classification=%{y}<extra></extra>'
     else:
-        texttemplate = '%{text:.2s}'
+        custom_text = [f"{val:.2f}%" for val in df[x_col]]
+        hover_text = '<b>Share%=%{x}</b><br><b>Classification=%{y}<extra></extra>'
     # Trace styling
     if title_prefix == "Technology Convergence":
         fig.update_traces(
@@ -519,17 +521,19 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs",
                 color='#1f77b4',
                 opacity=0.8,
                 line=dict(width=0)
-            )
+            ),
+            hovertemplate=hover_text
         )
     else:
         fig.update_traces(
-            texttemplate=texttemplate, 
+            texttemplate='%{text}', 
             textposition='inside',
             marker=dict(
                 color='#1f77b4',
                 opacity=0.8,
                 line=dict(width=0)
-            )
+            ),
+            hovertemplate=hover_text
         )
     
     # Layout fixes
