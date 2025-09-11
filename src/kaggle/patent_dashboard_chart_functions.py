@@ -114,6 +114,9 @@ def display_metrics_html(summary_df: pd.DataFrame):
       - abstract_completeness
       - claims_completeness
       - avg_abstract_length
+      - patents_with_codes
+      - coverage_pct
+      - avg_codes_per_patent
     """
     if summary_df.empty:
         return None
