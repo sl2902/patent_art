@@ -54,6 +54,7 @@ with tab2:
     st.markdown("""
     **Methodology:** Cost optimization analysis measuring BigQuery date-based partitioning impact on 
     query performance and data processing costs across different temporal partition strategies.
+    Testing was carried out across 10 diverse technology queries avoiding caching
     """)
     
     try:
