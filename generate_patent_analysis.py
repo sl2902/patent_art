@@ -82,7 +82,7 @@ def yoy_lang_growth_rate():
     # logger.info("Running query for YoY English language publication growth rate")
     return client.query_to_dataframe(qry)
 
-def yoy_country_growth_rate(top_n: int = 10):
+def yoy_country_growth_rate(top_n: int = 10, filter_clause: str = ""):
     """YoY top n country publication growth rate - MultiLine chart"""
     qry = bq_queries.yoy_top_n_countries
     qry = qry.format(
@@ -90,8 +90,8 @@ def yoy_country_growth_rate(top_n: int = 10):
         dataset_id=dataset_id,
         publication_table=publication_table,
         top_n=top_n,
+        filter_clause=filter_clause
     )
-    
     # logger.info("Running query for YoY English language publication growth rate")
     return client.query_to_dataframe(qry)
 
