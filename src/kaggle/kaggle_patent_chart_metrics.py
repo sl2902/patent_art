@@ -405,7 +405,7 @@ def render_latency_chart(df):
     <div class="chart">
     """
 
-    for _, row in df.iterrows():
+    for _, row in df.sort_values(["mean_latency", "median_latency"]).iterrows():
         html += f"""
         <div class="row">
           <div class="label">{row['test_type']} ({row['run_environment']})</div>
@@ -427,7 +427,7 @@ def render_latency_chart(df):
                    {row['median_latency']:.0f} ms
               </div>
             </div>
-            <div class="value">{'Fastest' if row['median_latency']==median_min else f"{(row['median_latency']/median_max):.2f}× slower"}</div>
+            <div class="value">{'Fastest' if row['median_latency']==median_min else f"{(row['median_latency']/median_min):.2f}× slower"}</div>
           </div>
         </div>
         """
@@ -482,7 +482,7 @@ def render_latency_chart_streamlit(df: pd.DataFrame):
     mean_texts = []
     median_texts = []
     
-    for i, (_, row) in enumerate(df.iterrows()):
+    for i, (_, row) in enumerate(df.sort_values(["mean_latency", "median_latency"], ascending=[False, False]).iterrows()):
         base_y = len(df) - i  # Reverse order to match original
         
         # Mean bar
@@ -551,7 +551,7 @@ def render_latency_chart_streamlit(df: pd.DataFrame):
         yaxis_title='Test Configuration',
         height=400 + len(df) * 50,  # Dynamic height based on data
         barmode='overlay',
-        showlegend=True,
+        showlegend=False,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
