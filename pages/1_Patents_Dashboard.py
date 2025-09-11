@@ -846,7 +846,7 @@ def main():
         # Top CPCs analysis
         if not cpc_df.empty:
             with col1:
-                st.subheader("Top CPC Classifications")
+                st.subheader(f"Top {len(cpc_df)} CPC Classifications")
                 fig_cpc = create_cpc_bar_chart(cpc_df, column_name="cpc_share", title_prefix="Top 5 CPCs")
                 if fig_cpc:
                     st.plotly_chart(fig_cpc, width=True)
@@ -858,7 +858,7 @@ def main():
                             x=cpc_df.columns[1],
                             y=cpc_df.columns[0],
                             orientation='h',
-                            title="Top CPC Classifications"
+                            title=f"Top {len(cpc_df)} CPC Classifications"
                         )
                         st.plotly_chart(fig_cpc_alt, width=True)
                 
