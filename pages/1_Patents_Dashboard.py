@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, date
+from typing import Any, List, Optional
 import numpy as np
 
 from generate_patent_analysis import (
@@ -13,7 +14,7 @@ from generate_patent_analysis import (
 )
 
 st.set_page_config(
-    page_title="📊 Patents Dashboard",
+    page_title="Patents Dashboard",
     page_icon="⚗️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -126,10 +127,10 @@ def load_time_series_data():
         return pd.DataFrame()
 
 @st.cache_data
-def load_country_trends_data(top_n=10):
+def load_country_trends_data(top_n=10, filter_clause: Optional[str] = None):
     """Load country-wise YoY trends"""
     try:
-        return yoy_country_growth_rate(top_n)
+        return yoy_country_growth_rate(top_n, filter_clause=filter_clause)
     except Exception as e:
         st.error(f"Error loading country trends: {e}")
         return pd.DataFrame()
@@ -608,20 +609,25 @@ def main():
         
         # Country filter
         st.subheader("Countries")
-        all_countries = ['US', 'KR', 'WO', 'EP', 'RU', 'CN', 'CA', 'JP', 'TW', 'AU']
-        selected_countries = st.multiselect(
-            "Select Countries", 
-            all_countries, 
-            default=all_countries[:5]
-        )
         
-        # Technology filter
-        st.subheader("Technology Areas")
-        tech_areas = ['All', 'Human Necessities', 'Operations & Transport', 
-                      'Chemistry & Metallurgy', 'Textiles', 'Construction',
-                      'Mechanical Engineering', 'Physics', 'Electricity',
-                      'Emerging Technologies']
-        selected_tech = st.selectbox("Technology Focus", tech_areas)
+        COUNTRY_LIST = ['US', 'KR', 'WO', 'EP', 'RU', 'CN', 'CA', 'JP', 'TW', 'AU']
+        use_country_filter = st.selectbox("Country filtering:", ["All countries", "Select specific"])
+        if use_country_filter == "Select specific":
+            selected_countries = st.multiselect(
+                "Select Countries", 
+                COUNTRY_LIST, 
+                # default=["All"]
+            )
+        else:
+            selected_countries = None
+        
+        # # Technology filter
+        # st.subheader("Technology Areas")
+        # tech_areas = ['All', 'Human Necessities', 'Operations & Transport', 
+        #               'Chemistry & Metallurgy', 'Textiles', 'Construction',
+        #               'Mechanical Engineering', 'Physics', 'Electricity',
+        #               'Emerging Technologies']
+        # selected_tech = st.selectbox("Technology Focus", tech_areas)
         
     # Main content tabs
     tab1, tab2, tab3, tab4 = st.tabs([
@@ -812,7 +818,12 @@ def main():
         
         # Load time series data
         trends_df = load_time_series_data()
-        country_trends_df = load_country_trends_data()
+        if selected_countries:
+            filter_clause = " AND a.country_code IN (" + ", ".join([f"'{c}'" for c in selected_countries]) + ")"
+            country_trends_df = load_country_trends_data(filter_clause=filter_clause)
+        else:
+           filter_clause = " AND a.country_code IN (" + ", ".join([f"'{c}'" for c in COUNTRY_LIST]) + ")"
+           country_trends_df = load_country_trends_data(filter_clause=filter_clause) 
         
         if not trends_df.empty:
             col1, col2 = st.columns(2)
