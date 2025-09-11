@@ -15,7 +15,7 @@ from src.kaggle.kaggle_patent_chart_metrics import (
 )
 
 st.set_page_config(
-    page_title="📈 Performance Metrics",
+    page_title="Performance Metrics",
     page_icon="📈",
     layout="wide",
 )
