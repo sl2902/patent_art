@@ -7,6 +7,7 @@ import pandas as pd
 
 # Dataset size
 dataset_size_qry = """
+WITH base AS (
         SELECT 
         COUNT(*) as total_patents,
         MIN(pub_date) as earliest_date,
@@ -21,6 +22,30 @@ dataset_size_qry = """
         ROUND(COUNT(abstract_en) / COUNT(*) * 100, 1) as abstract_completeness_pct,
         ROUND(COUNT(claims_en) / COUNT(*) * 100, 1) as claims_completeness_pct
         FROM `{project_id}.{dataset_id}.{publication_table}`
+), cpc AS (
+        -- CPC percentage coverage
+        SELECT 
+        COUNT(CASE WHEN ARRAY_LENGTH(cpc_codes) > 0 THEN 1 END) as patents_with_codes,
+        ROUND(
+            COUNT(CASE WHEN ARRAY_LENGTH(cpc_codes) > 0 THEN 1 END) / COUNT(*) * 100, 
+            1
+        ) as coverage_pct,
+        ROUND(AVG(ARRAY_LENGTH(cpc_codes)), 1) as avg_codes_per_patent
+        FROM `{project_id}.{dataset_id}.{publication_table}`
+    )
+        SELECT
+            total_patents,
+            unique_countries,
+            unique_families,
+            avg_title_length,
+            avg_abstract_length,
+            title_completeness_pct,
+            abstract_completeness_pct,
+            claims_completeness_pct,
+            patents_with_codes,
+            coverage_pct,
+            avg_codes_per_patent
+        FROM base, cpc
 """
 
 # Country-wise breakdown of patent publications
