@@ -1,4 +1,4 @@
-""""Define a class and various functions that perform Semantic Search on Patents"""
+""""This class contains functions that generate embeddings, performs semantic search and explains search results"""
 import os
 import re
 from google.cloud import bigquery
