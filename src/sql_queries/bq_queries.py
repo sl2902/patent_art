@@ -143,6 +143,8 @@ yoy_top_n_countries = """
             a.country_code,
             COUNT(*) as publication_count
         FROM `{project_id}.{dataset_id}.{publication_table}` a join top_10_countries b on a.country_code = b.country_code
+        WHERE 1=1
+        {filter_clause}
         GROUP BY
             year,
             a.country_code
