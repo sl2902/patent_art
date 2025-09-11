@@ -63,6 +63,103 @@ def create_metric_cards(df, metrics_config):
                     delta=config.get('delta')
                 )
 
+def display_metrics_html_streamlit(summary_df: pd.DataFrame):
+    """
+    Display summary statistics as styled HTML cards in Streamlit.
+    """
+    if summary_df.empty:
+        return None
+
+    row = summary_df.iloc[0]
+
+    # Use Streamlit columns instead of CSS grid
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown("""
+        <div style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); border: 1px solid #eee; margin-bottom: 16px;">
+            <h4 style="color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 6px;">Patent Portfolio Overview</h4>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Total Patents</span>
+                <strong style="color: #2c3e50;">{:,}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Countries</span>
+                <strong style="color: #2c3e50;">{:,}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Patent Families</span>
+                <strong style="color: #2c3e50;">{:,}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Avg Title Length</span>
+                <strong style="color: #2c3e50;">{:.1f}</strong>
+            </div>
+        </div>
+        """.format(
+            int(row['total_patents']),
+            int(row['unique_countries']), 
+            int(row['unique_families']),
+            row['avg_title_length']
+        ), unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); border: 1px solid #eee; margin-bottom: 16px;">
+            <h4 style="color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 6px;">Data Quality Metrics</h4>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Title Completeness</span>
+                <strong style="color: #2c3e50;">{:.1f}%</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Abstract Completeness</span>
+                <strong style="color: #2c3e50;">{:.1f}%</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Claims Completeness</span>
+                <strong style="color: #2c3e50;">{:.1f}%</strong>
+            </div>
+        </div>
+        """.format(
+            row['title_completeness_pct'],
+            row['abstract_completeness_pct'],
+            row['claims_completeness_pct']
+        ), unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); border: 1px solid #eee; margin-bottom: 16px;">
+            <h4 style="color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 6px;">Content Analysis</h4>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Avg Abstract Length</span>
+                <strong style="color: #2c3e50;">{:.1f}</strong>
+            </div>
+        </div>
+        """.format(row['avg_abstract_length']), unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown("""
+        <div style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); border: 1px solid #eee; margin-bottom: 16px;">
+            <h4 style="color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 6px;">Corporate Patent Code Coverage (CPC)</h4>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Total Patents with CPC</span>
+                <strong style="color: #2c3e50;">{:,}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Coverage</span>
+                <strong style="color: #2c3e50;">{:.1f}%</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 6px 0;">
+                <span style="color: #666;">Average Codes Per Patent</span>
+                <strong style="color: #2c3e50;">{:.1f}%</strong>
+            </div>
+        </div>
+        """.format(
+            row['patents_with_codes'],
+            row['coverage_pct'],
+            row['avg_codes_per_patent']
+        ), unsafe_allow_html=True)
+
 @st.cache_data
 def load_summary_data():
     """Load actual summary statistics from BigQuery"""
@@ -91,7 +188,7 @@ def load_citation_data(top_n=10):
         return pd.DataFrame()
 
 @st.cache_data  
-def load_cpc_data(top_n=10):
+def load_cpc_data(top_n=5):
     """Load CPC classification data"""
     try:
         return top_cpc(top_n)
@@ -406,12 +503,20 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
     # Determine the y-axis column
     y_col = "cpc_code" if "cpc_code" in df.columns else df.columns[1]
     x_col = column_name if column_name in df.columns else df.columns[1]
+
+    if title_prefix == "Technology Convergence":
+        custom_text = [f"{val/1000:.1f}K" for val in df[x_col]]
+        hover_text = '<b>Avg# of Patents%=%{x}</b><br><b>Classification=%{y}<extra></extra>'
+    else:
+        custom_text = [f"{val:.2f}%" for val in df[x_col]]
+        hover_text = '<b>Share%=%{x}</b><br><b>Classification=%{y}<extra></extra>'
+    
     
     fig = px.bar(
         df,
         x=x_col,
         y=y_col,
-        text=x_col,
+        text=custom_text,
         # title=f"{title_prefix} by Share",
         labels={y_col: "Classification", x_col: "Share %"} if title_prefix != "Technology Convergence" else {y_col: "Classification", x_col: "Avg # of Patents"},
         color_discrete_sequence=["#1f77b4"],
@@ -424,17 +529,19 @@ def create_cpc_bar_chart(df, column_name="cpc_share", title_prefix="Top 5 CPCs")
                 color='#1f77b4',
                 opacity=0.8,
                 line=dict(width=0)
-            )
+            ),
+            hovertemplate=hover_text
     )
     else:
         fig.update_traces(
-            texttemplate='%{text:.2f}%', 
-            textposition='outside',
+            texttemplate='%{text}', 
+            textposition='inside',
             marker=dict(
                 color='#1f77b4',
                 opacity=0.8,
                 line=dict(width=0)
-            )
+            ),
+            hovertemplate=hover_text
         )
     
     fig.update_layout(
@@ -643,32 +750,33 @@ def main():
         
         if not summary_df.empty:
             # Update metrics based on your styled column names
-            metrics_config = {
-                'total_patents': {'label': 'Total Patents', 'format': 'comma'},
-                'unique_countries': {'label': 'Countries', 'format': 'comma'},
-                'unique_families': {'label': 'Patent Families', 'format': 'comma'},
-                'avg_title_length': {'label': 'Avg Title Length', 'format': 'decimal'}
-            }
+            display_metrics_html_streamlit(summary_df)
+            # metrics_config = {
+            #     'total_patents': {'label': 'Total Patents', 'format': 'comma'},
+            #     'unique_countries': {'label': 'Countries', 'format': 'comma'},
+            #     'unique_families': {'label': 'Patent Families', 'format': 'comma'},
+            #     'avg_title_length': {'label': 'Avg Title Length', 'format': 'decimal'}
+            # }
             
-            create_metric_cards(summary_df, metrics_config)
+            # create_metric_cards(summary_df, metrics_config)
             
-            # Quality metrics row
-            st.subheader("Data Quality Metrics")
-            quality_metrics = {
-                'title_completeness_pct': {'label': 'Title Completeness', 'format': 'percentage'},
-                'abstract_completeness_pct': {'label': 'Abstract Completeness', 'format': 'percentage'},
-                'claims_completeness_pct': {'label': 'Claims Completeness', 'format': 'percentage'}
-            }
+            # # Quality metrics row
+            # st.subheader("Data Quality Metrics")
+            # quality_metrics = {
+            #     'title_completeness_pct': {'label': 'Title Completeness', 'format': 'percentage'},
+            #     'abstract_completeness_pct': {'label': 'Abstract Completeness', 'format': 'percentage'},
+            #     'claims_completeness_pct': {'label': 'Claims Completeness', 'format': 'percentage'}
+            # }
             
-            create_metric_cards(summary_df, quality_metrics)
+            # create_metric_cards(summary_df, quality_metrics)
             
-            # Additional metrics if available
-            if 'avg_abstract_length' in summary_df.columns:
-                st.subheader("Content Analysis")
-                content_metrics = {
-                    'avg_abstract_length': {'label': 'Avg Abstract Length', 'format': 'decimal'},
-                }
-                create_metric_cards(summary_df, content_metrics)
+            # # Additional metrics if available
+            # if 'avg_abstract_length' in summary_df.columns:
+            #     st.subheader("Content Analysis")
+            #     content_metrics = {
+            #         'avg_abstract_length': {'label': 'Avg Abstract Length', 'format': 'decimal'},
+            #     }
+            #     create_metric_cards(summary_df, content_metrics)
         else:
             st.error("Unable to load summary data")
     
