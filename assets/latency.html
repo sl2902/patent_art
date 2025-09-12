@@ -1,0 +1,122 @@
+
+    <style>
+      body { font-family: Arial, sans-serif; background: #fafafa; }
+      h2 { margin-bottom: 20px; }
+      .chart { max-width: 900px; }
+      .row { margin: 14px 0; }
+      .label { font-weight: bold; margin-bottom: 6px; color: #333; }
+      .bar-group { display: flex; align-items: center; margin: 4px 0; }
+      .bar-container { flex: 1; background: #eee; border-radius: 6px; margin: 0 6px; height: 22px; position: relative; }
+      .bar { height: 100%; border-radius: 6px; text-align: right; color: #fff; padding-right: 6px; font-size: 12px; line-height: 22px; box-sizing: border-box; }
+      .bar.green { background: #4caf50; }
+      .bar.red   { background: #e53935; }
+      .bar.blue  { background: #2196f3; }
+      .metric-label { width: 55px; font-size: 12px; text-align: right; color: #666; }
+      .value { width: 100px; font-size: 12px; text-align: left; color: #444; }
+    </style>
+    <h2>Latency Comparison (ms) — Mean vs Median</h2>
+    <div class="chart">
+    
+        <div class="row">
+          <div class="label">vector_search (kaggle)</div>
+          <div class="bar-group">
+            <div class="metric-label">Mean:</div>
+            <div class="bar-container">
+              <div class="bar green"
+                   style="width:23.316700106914467%;">
+                   3001 ms
+              </div>
+            </div>
+            <div class="value">Fastest</div>
+          </div>
+          <div class="bar-group">
+            <div class="metric-label">Median:</div>
+            <div class="bar-container">
+              <div class="bar green"
+                   style="width:24.69605047974313%;">
+                   2872 ms
+              </div>
+            </div>
+            <div class="value">Fastest</div>
+          </div>
+        </div>
+        
+        <div class="row">
+          <div class="label">vector_search (laptop)</div>
+          <div class="bar-group">
+            <div class="metric-label">Mean:</div>
+            <div class="bar-container">
+              <div class="bar blue"
+                   style="width:35.11637758629161%;">
+                   4520 ms
+              </div>
+            </div>
+            <div class="value">1.51× slower</div>
+          </div>
+          <div class="bar-group">
+            <div class="metric-label">Median:</div>
+            <div class="bar-container">
+              <div class="bar blue"
+                   style="width:35.79271157482365%;">
+                   4163 ms
+              </div>
+            </div>
+            <div class="value">1.45× slower</div>
+          </div>
+        </div>
+        
+        <div class="row">
+          <div class="label">complete_pipeline (kaggle)</div>
+          <div class="bar-group">
+            <div class="metric-label">Mean:</div>
+            <div class="bar-container">
+              <div class="bar blue"
+                   style="width:40.121171619013595%;">
+                   5164 ms
+              </div>
+            </div>
+            <div class="value">1.72× slower</div>
+          </div>
+          <div class="bar-group">
+            <div class="metric-label">Median:</div>
+            <div class="bar-container">
+              <div class="bar blue"
+                   style="width:43.00288075071311%;">
+                   5001 ms
+              </div>
+            </div>
+            <div class="value">1.74× slower</div>
+          </div>
+        </div>
+        
+        <div class="row">
+          <div class="label">complete_pipeline (laptop)</div>
+          <div class="bar-group">
+            <div class="metric-label">Mean:</div>
+            <div class="bar-container">
+              <div class="bar red"
+                   style="width:100.0%;">
+                   12871 ms
+              </div>
+            </div>
+            <div class="value">4.29× slower</div>
+          </div>
+          <div class="bar-group">
+            <div class="metric-label">Median:</div>
+            <div class="bar-container">
+              <div class="bar red"
+                   style="width:100.0%;">
+                   11630 ms
+              </div>
+            </div>
+            <div class="value">4.05× slower</div>
+          </div>
+        </div>
+        
+    <div style="font-size:14px; margin-top:12px; color:#555; max-width:800px;">
+      <strong>Note:</strong> Bars are scaled relative to the <em> slowest performance </em> in each category (mean vs median).
+      The fastest value is highlighted in <span style="color:green;font-weight:bold;">green</span> and labeled "Fastest".
+      The slowest is highlighted in <span style="color:red;font-weight:bold;">red</span>.
+      All other values show how many times slower they are compared to the fastest baseline.
+    </div>
+    </div>
