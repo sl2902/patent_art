@@ -41,7 +41,7 @@ class PatentSemanticSearch:
         qry = bq_queries.create_embedding_ddl.format(
             project_id=self.project_id,
             dataset_id=self.dataset_id,
-            table_name=table_name
+            embeddings_table=table_name
         )
         try:
             self.client.execute_query(qry)
@@ -49,19 +49,39 @@ class PatentSemanticSearch:
             logger.error(f"Failed to create embedding table {table_name} - {err}")
             raise
     
+    def delete_embeddings_table(self, table_name: str, start_date: str, end_date: str):
+        qry = bq_queries.delete_embedding_table.format(
+            project_id=self.project_id,
+            dataset_id=self.dataset_id,
+            embeddings_table=table_name,
+            start_date=start_date,
+            end_date=end_date
+        )
+        try:
+            job = self.client.execute_sql_query(qry)
+            # blocking call - wait until finish
+            _ = job.result()
+            return job
+        except Exception as err:
+            logger.error(f"Failed to delete embedding table {table_name} - {err}")
+            raise
+    
     def create_vector_index(
             self, 
             vector_index: str, 
             embedding_table_name: str, 
-            embedding_col: str = "text_embedding"
+            embedding_col: str = "text_embedding",
+            num_lists: int = 100,
         ):
 
-        qry = bq_queries.create_vector_index(
+        qry = bq_queries.create_vector_index
+        qry = qry.format(
             project_id=self.project_id,
             dataset_id=self.dataset_id,
             vector_index=vector_index,
-            embedding_table_name=embedding_table_name,
-            embedding_col=embedding_col,
+            table_name=embedding_table_name,
+            embedding_column=embedding_col,
+            num_lists=num_lists
         )
         try:
             self.client.execute_query(qry)
@@ -74,6 +94,7 @@ class PatentSemanticSearch:
             table_name: str,
             df_patents: pd.DataFrame,
             num_batches: int,
+            device: str,
             embedding_batch_size: int = 1024,
             batch_num: int = 0,
             chunk_size: int = 1024,
@@ -84,11 +105,12 @@ class PatentSemanticSearch:
             batch_size=embedding_batch_size,
             show_progress_bar=True,
             normalize_embeddings=True,
+            device=device,
         )
         df_batch_with_embeddings = df_patents.copy()
         df_batch_with_embeddings["text_embedding"] = embeddings.tolist()
 
-        # table_name = f'{self.project_id}.{self.dataset_id}.{table_name}'
+        table_name = f'{self.project_id}.{self.dataset_id}.{table_name}'
         self.client.upload_dataframe(
             df_batch_with_embeddings,
             table_name,
