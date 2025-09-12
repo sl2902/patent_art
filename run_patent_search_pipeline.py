@@ -251,9 +251,9 @@ def run_semantic_search_pipeline(
         top_k: int = 1
     ) -> Optional[pd.DataFrame]:
 
-    model_name = "all-MiniLM-L6-v2"
+    model_name = os.getenv("small_model_id")
     model = SentenceTransformer(model_name, token=hf_token)
-    embedding_table_name = 'patent_embeddings_local'
+    embedding_table_name = os.getenv("embedding_table")
 
 
     logger.info("Running Patent semantic search in BigQuery")
