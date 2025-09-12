@@ -883,3 +883,23 @@ calculate_bytes_and_time_reduction_query = """
     GROUP BY p.run_environment, p.test_type, date_range_months, b.full_scan_bytes, b.full_scan_time
     ORDER BY date_range_months
 """
+
+# Code to create the publication table subset from the raw table
+create_source_publication_table = """
+        SELECT
+            EXTRACT(YEAR FROM PARSE_DATE("%Y%m%d", CAST(publication_date AS STRING))) as year,
+            COUNT(*)
+        FROM `patents-public-data.patents.publications`
+        WHERE country_code = 'IN'
+        AND publication_date > 0
+        AND EXISTS (
+            SELECT 1 FROM UNNEST(title_localized) t WHERE t.language = 'en'
+            )
+            AND EXISTS (
+            SELECT 1 FROM UNNEST(abstract_localized) a WHERE a.language = 'en'
+            )
+        AND ARRAY_LENGTH(abstract_localized) > 0
+        AND ARRAY_LENGTH(title_localized) > 0
+        GROUP BY year
+        ORDER BY year DESC;
+"""
