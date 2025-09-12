@@ -373,6 +373,11 @@ create_embedding_ddl = """
     )
 """
 
+delete_embedding_table = """
+    DELETE FROM `{project_id}.{dataset_id}.{embeddings_table}`
+    WHERE pub_date BETWEEN '{start_date}' and '{end_date}'
+"""
+
 create_vector_index = """
     CREATE VECTOR INDEX IF NOT EXISTS `{project_id}.{dataset_id}.{vector_index}`
     ON `{project_id}.{dataset_id}.{table_name}`({embedding_column})
