@@ -50,7 +50,7 @@ class GoogleClient:
         try:
             job = self._client.query(query, job_config=job_config)
         except Exception as err:
-            logger.error(f"BigQuery DDL {query} execution failed {err}")
+            logger.error(f"BigQuery statement {query} execution failed {err}")
             raise
         return job
     
