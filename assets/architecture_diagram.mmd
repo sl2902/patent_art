@@ -1,4 +1,3 @@
-```mermaid
 graph TB
     %% Data Sources and Filtering
     A[Google Patents Public Dataset<br/>2.6TB - Global Publications] --> B{Multi-Stage Filtering}
@@ -29,7 +28,7 @@ graph TB
     
     %% Optimized Storage and Processing
     M --> P
-    E --> |Partition Pruning<br/>80-85% Cost Reduction| P
+    E --> |Partition Pruning<br/>84% Cost Reduction| P
     Q --> R[Top-K Similar Patents<br/>- Document Similarity Ranking<br/>- Sentence-Level Explainability]
     
     %% User Interfaces - Split into two paths
@@ -37,7 +36,7 @@ graph TB
     R --> S2[Kaggle Notebook<br/>- Technical Implementation<br/>- Code Demonstration<br/>- Static Demo<br/>- Performance Analysis]
     
     %% Performance Monitoring
-    U[Performance Metrics] --> V[Query Latency: <5s<br/>Partition Efficiency: 80-85% cost reduction<br/>Discoverability: 98%+<br/>Scalability: 49M+ patents]
+    U[Performance Metrics] --> V[- Complete Pipeline: 5.2s<br/>- Core Search Latency: Sub-4s<br/>- Partition Efficiency: 84% cost reduction<br/>and 12% performance improvement<br/>- Semantic Uniqueness: 98%+<br/>- Dataset Coverage: 2.9M patents tested]
     P --> U
     
     %% Architecture Benefits
