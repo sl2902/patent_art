@@ -14,6 +14,10 @@ from generate_patent_metrics_analysis import (
     discovery_rate_measurement
 )
 
+# import pathlib
+# path = pathlib.Path(__file__).parent.parent.parent.resolve()
+# asset_path = pathlib.Path('assets').resolve()
+
 try:
     import streamlit as st
     HAS_STREAMLIT = True
@@ -191,7 +195,6 @@ def create_bigquery_partition_efficiency(efficiency_df: pd.DataFrame, reduction_
     # Add grid for better readability
     # fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     # fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    
     return fig
 
 def create_bigquery_visualization() -> Optional[go.Figure]:
@@ -205,6 +208,7 @@ def create_bigquery_visualization() -> Optional[go.Figure]:
     if HAS_KAGGLE:
         fig.show()
     else:
+        # fig.write_html(f"{asset_path}/bigquery_viz.html")
         return fig
 
 def create_discovery_comparison_dashboard(df: pd.DataFrame):
@@ -357,7 +361,6 @@ def create_discovery_comparison_dashboard(df: pd.DataFrame):
         bordercolor="darkgreen",
         borderwidth=1
     )
-    
     return fig
 
 def create_discoverability_visualization() -> Optional[go.Figure]:
@@ -370,6 +373,7 @@ def create_discoverability_visualization() -> Optional[go.Figure]:
     if HAS_KAGGLE:
         fig.show()
     else:
+        # fig.write_html(f"{asset_path}/discovery_uniqueness.html")
         return fig
 
 
@@ -442,6 +446,9 @@ def render_latency_chart(df):
     """
     
     html += note_html + "</div>"
+    # filepath = f"{asset_path}/latency.html"
+    # with open(filepath, "w", encoding="utf-8") as f:
+    #     f.write(html)
     display(HTML(html))
 
 def create_latency_visualization():
@@ -593,8 +600,9 @@ def create_latency_visualization_streamlit():
 
 if __name__ == "__main__":
     # logger.info("Patent Metrics analysis")
-    # create_bigquery_visualization()
+    create_bigquery_visualization()
     create_discoverability_visualization()
+    create_latency_visualization()
     # # Sample data for testing
     # efficiency_sample = [
     #     {"run_environment": "kaggle", "test_type": "partition_1_month", "avg_search_time_sec": "46.42", "avg_bytes_processed_gb": "2.0", "avg_results": "20.0"},
