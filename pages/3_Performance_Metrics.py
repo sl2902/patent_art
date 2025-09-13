@@ -44,7 +44,8 @@ with tab1:
         **Key Findings:**
         - Cloud environment shows 33% faster vector search performance
         - Complete pipeline includes query embedding + vector search + explainability computation
-        - Consistent sub-5 second response times across all configurations
+        - Both environments successfully process semantic searches across 2.9M patents, with core vector search completing in under 4 seconds; 
+          The complete pipeline including explainability features (sentence-level similarity analysis) takes 5.2 seconds in cloud environments
         """)
     except Exception as e:
         st.error(f"Error loading latency visualization: {e}")
@@ -73,7 +74,8 @@ with tab3:
     st.header("Semantic vs Keyword Search Analysis")
     st.markdown("""
     **Methodology:** Comparative analysis across 10 diverse technology queries evaluating discovery 
-    capabilities between BigQuery AI semantic search and traditional keyword search approaches.
+    capabilities between BigQuery AI semantic search and traditional keyword search approaches. Each
+    query returns 30 patents.
     """)
     
     try:
@@ -92,7 +94,7 @@ with tab3:
 st.markdown("---")
 st.header("📋 Performance Summary")
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.metric(
@@ -109,6 +111,13 @@ with col2:
     )
 
 with col3:
+    st.metric(
+        label="Performance Improvement",
+        value="12%",
+        help="Performance improvement through partition pruning"
+    )
+
+with col4:
     st.metric(
         label="Unique Discovery",
         value="98.3%",
