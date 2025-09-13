@@ -796,7 +796,7 @@ def create_patent_dashboard_demo():
     tech_area_df = load_tech_area_data()
     if not tech_area_df.empty:
         # logger.info(f"   Loaded tech area data with {len(tech_area_df)} records")
-        fig = create_cpc_bar_chart(tech_area_df, column_name="percentage", title_prefix="Technology Areas")
+        fig = create_cpc_bar_chart(tech_area_df, column_name="section_patent_percentage", title_prefix="Technology Areas")
         if fig:
             # fig.write_html(f"{asset_path}/top_10_tech_areas.html")
             fig.show()
