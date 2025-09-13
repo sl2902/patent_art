@@ -140,7 +140,7 @@ def display_metrics_html_streamlit(summary_df: pd.DataFrame):
     with col4:
         st.markdown("""
         <div style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); border: 1px solid #eee; margin-bottom: 16px;">
-            <h4 style="color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 6px;">Corporate Patent Code Coverage (CPC)</h4>
+            <h4 style="color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 6px;">Corporate Patent Classification (CPC)</h4>
             <div style="display: flex; justify-content: space-between; margin: 6px 0;">
                 <span style="color: #666;">Total Patents with CPC</span>
                 <strong style="color: #2c3e50;">{:,}</strong>
@@ -151,11 +151,11 @@ def display_metrics_html_streamlit(summary_df: pd.DataFrame):
             </div>
             <div style="display: flex; justify-content: space-between; margin: 6px 0;">
                 <span style="color: #666;">Average Codes Per Patent</span>
-                <strong style="color: #2c3e50;">{:.1f}%</strong>
+                <strong style="color: #2c3e50;">{:.1f}</strong>
             </div>
         </div>
         """.format(
-            row['patents_with_codes'],
+            int(row['patents_with_codes']),
             row['coverage_pct'],
             row['avg_codes_per_patent']
         ), unsafe_allow_html=True)
