@@ -19,6 +19,9 @@ from generate_patent_analysis import (
     yoy_lang_growth_rate, yoy_country_growth_rate, citations_top_countries,
     top_cpc, tech_area_cpc, tech_convergence, patent_flow
 )
+# import pathlib
+# path = pathlib.Path(__file__).parent.parent.parent.resolve()
+# asset_path = pathlib.Path('assets').resolve()
 
 # Data loading functions
 def load_summary_data():
@@ -139,10 +142,10 @@ def display_metrics_html(summary_df: pd.DataFrame):
         ("Content Analysis", [
             ("Avg Abstract Length", f"{row['avg_abstract_length']:.1f}")
         ]),
-        ("Corporate Patent Code Coverage (CPC)", [
-            ("Total Patents with CPC", f"{row['patents_with_codes']:,}"),
+        ("Corporate Patent Classification (CPC)", [
+            ("Total Patents with CPC", f"{int(row['patents_with_codes']):,}"),
             ("Coverage", f"{row['coverage_pct']:.1f}%"),
-            ("Average Codes Per Patent", f"{row['avg_codes_per_patent']:.1f}%")
+            ("Average Codes Per Patent", f"{row['avg_codes_per_patent']:.1f}")
         ])
     ]
 
@@ -201,6 +204,7 @@ def display_metrics_html(summary_df: pd.DataFrame):
         html += "</div>"
 
     html += "</div>"
+    # return html
     display(HTML(html))
 
 def create_country_bar_chart(df):
@@ -745,7 +749,9 @@ def create_citation_table_styled(df):
     }
     </style>
     """
-    
+    # returned the content to save them for Kaggle. Kaggle wasn't displaying 
+    # the chart after saving the file
+    #return css + table_html
     display(HTML(css + table_html))
 
 
@@ -760,7 +766,11 @@ def create_patent_dashboard_demo():
     # logger.info("1. Loading Summary Data...")
     summary_df = load_summary_data()
     if not summary_df.empty:
-        display_metrics_html(summary_df)
+        html_content = display_metrics_html(summary_df)
+        # filepath = f"{asset_path}/dataset_summary.html"
+        # with open(filepath, "w", encoding="utf-8") as f:
+        #     f.write(html_content)
+
         # logger.info(f"   Loaded summary data with {len(summary_df)} records")
         # logger.info(f"   Columns: {list(summary_df.columns)}")
     
@@ -770,6 +780,7 @@ def create_patent_dashboard_demo():
         # logger.info(f"   Loaded country data with {len(country_df)} records")
         fig = create_country_bar_chart(country_df)
         if fig:
+            # fig.write_html(f"{asset_path}/top_10_countries_by_publication.html")
             fig.show()
     
     # logger.info("3. Loading CPC Data...")
@@ -778,6 +789,7 @@ def create_patent_dashboard_demo():
         # logger.info(f"   Loaded CPC data with {len(cpc_df)} records")
         fig = create_cpc_bar_chart(cpc_df, column_name="cpc_share", title_prefix="Top 5 CPCs")
         if fig:
+            # fig.write_html(f"{asset_path}/top_5_cpc.html")
             fig.show()
     
     # logger.info("4. Loading Technology Area Data...")
@@ -786,6 +798,7 @@ def create_patent_dashboard_demo():
         # logger.info(f"   Loaded tech area data with {len(tech_area_df)} records")
         fig = create_cpc_bar_chart(tech_area_df, column_name="percentage", title_prefix="Technology Areas")
         if fig:
+            # fig.write_html(f"{asset_path}/top_10_tech_areas.html")
             fig.show()
     
     # logger.info("5. Loading Technology Convergence Data...")
@@ -794,6 +807,7 @@ def create_patent_dashboard_demo():
         # logger.info(f"   Loaded tech convergence data with {len(tech_convergence_df)} records")
         fig = create_cpc_bar_chart(tech_convergence_df, column_name="avg_recent_patents", title_prefix="Technology Convergence")
         if fig:
+            # fig.write_html(f"{asset_path}/top_5_tech_convergence.html")
             fig.show()
     
     # logger.info("6. Loading Timeline Data...")
@@ -802,13 +816,17 @@ def create_patent_dashboard_demo():
         # logger.info(f"   Loaded timeline data with {len(timeline_df)} records")
         fig = create_timeline_chart(timeline_df)
         if fig:
+            # fig.write_html(f"{asset_path}/timeline.html")
             fig.show()
     
     # logger.info("7. Loading Citation Data...")
     citation_df = load_citation_data()
     if not citation_df.empty:
         # logger.info(f"   Loaded citation data with {len(citation_df)} records")
-        create_citation_table_styled(citation_df)
+        html = create_citation_table_styled(citation_df)
+        # filepath = f"{asset_path}/citation.html"
+        # with open(filepath, "w", encoding="utf-8") as f:
+        #     f.write(html)
 
     
     # logger.info("8. Loading Time Series Data...")
@@ -817,6 +835,8 @@ def create_patent_dashboard_demo():
         # logger.info(f"   Loaded trends data with {len(trends_df)} records")
         fig = create_yoy_growth_chart(trends_df)
         if fig:
+            # fig.write_html(f"{asset_path}/timeseries.html")
+            # fig.write_image(f"{asset_path}/timeseries.html", width=1200, height=900, scale=3)
             fig.show()
     
     # logger.info("9. Loading Country Trends Data...")
@@ -825,6 +845,8 @@ def create_patent_dashboard_demo():
         # logger.info(f"   Loaded country trends with {len(country_trends_df)} records")
         fig = create_multi_country_yoy_chart(country_trends_df)
         if fig:
+            # fig.write_html(f"{asset_path}/trends.html")
+            # fig.write_image(f"{asset_path}/trends.html", width=1200, height=900, scale=3)
             fig.show()
     
     # logger.info("10. Loading Patent Flow Data...")
@@ -833,6 +855,8 @@ def create_patent_dashboard_demo():
         # logger.info(f"   Loaded flow data with {len(flow_df)} records")
         fig = create_sankey_chart(flow_df)
         if fig:
+            # fig.write_html(f"{asset_path}/sankey.html")
+            # fig.write_image(f"{asset_path}/sankey.html", width=1200, height=900, scale=3)
             fig.show()
     
     # logger.success("Dashboard demo complete!")
