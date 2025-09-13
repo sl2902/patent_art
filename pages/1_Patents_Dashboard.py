@@ -882,10 +882,25 @@ def main():
         if not tech_area_df.empty:
             with col2:
                 st.subheader("Technology Areas")
-                fig_tech = create_cpc_bar_chart(tech_area_df, column_name="percentage", title_prefix="Technology Areas")
+                fig_tech = create_cpc_bar_chart(tech_area_df, column_name="section_patent_percentage", title_prefix="Technology Areas")
                 if fig_tech:
                     st.plotly_chart(fig_tech, width=True)
-                    st.write("**Note** - Due to publications having multiple CPC codes, the percentages exceed 100%")
+                    st.markdown("""
+                    ### 📋 Technical Notes
+
+                    **CPC Section Definition**: The 'section' in a CPC code is the first letter. For example, in CPC code `G06N3/08`, the letter `G` represents the Physics section.
+
+                    **Data Methodology**: Unique patent counts were aggregated by section to avoid double-counting patents with multiple CPC codes in the same section.
+
+                    ### 📚 Official References
+
+                    - **[USPTO CPC Scheme](https://www.uspto.gov/web/patents/classification/cpc/html/cpc.html)** - Complete classification hierarchy and definitions
+                    - **[Cooperative Patent Classification](https://www.cooperativepatentclassification.org/)** - Joint USPTO-EPO classification system documentation
+                    - **[CPC Browser](https://worldwide.espacenet.com/patent/cpc-browser?locale=en_EP)** - Interactive classification explorer
+
+                    ---
+                    *Analysis based on 49M+ patents from the Google Patents Public Dataset (2017-2025)*
+                    """)
                 else:
                     # Fallback chart
                     if len(tech_area_df.columns) >= 2:
@@ -905,7 +920,17 @@ def main():
                 fig_tech = create_cpc_bar_chart(tech_convergence_df, column_name="avg_recent_patents", title_prefix="Technology Convergence")
                 if fig_tech:
                     st.plotly_chart(fig_tech, width=True)
-                    st.write("**Note** - Only the first letter from the CPC code was picked for this analysis")
+                    st.markdown("""
+                    ### 📋 Technical Notes
+
+                    **CPC Section Definition**: The 'section' in a CPC code is the first letter. For example, in CPC code `G06N3/08`, the letter `G` represents the Physics section.
+                    
+                    **Convergence Analysis**: "Physics + Electronics" represents patents that span both domains, capturing technologies like:
+                    - Computing/AI hardware and semiconductors
+                    - Smart sensors and measurement electronics  
+                    - Optical-electronic systems
+                    - Digital signal processing devices
+                    """)
 
         
         # Detailed tables
