@@ -208,7 +208,7 @@ citation_top_n_countries = """
         LIMIT {top_n}
 """
 
-# Top n CPCs (Corporate Patent Code)
+# Top n CPCs (Corporate Patent Classification)
 top_n_cpc = """
     WITH cpc_unnested AS (
         SELECT 
@@ -232,38 +232,46 @@ top_n_cpc = """
 
 # Technology area analysis by main CPC classes
 tech_area_cpc_class = """
-        WITH cpc_main_classes AS (
-        SELECT 
-            SUBSTR(cpc_code, 1, 1) as main_section,
-            SUBSTR(cpc_code, 1, 4) as main_class,
-            cpc_code,
-            COUNT(*) as patent_count
-        FROM `{project_id}.{dataset_id}.{publication_table}`,
-        UNNEST(cpc_codes) as cpc_code
-        WHERE cpc_code IS NOT NULL
-        GROUP BY main_section, main_class, cpc_code
-        )
-        SELECT 
-        main_section,
-        -- Manual mapping of main CPC sections
-        CASE main_section
-            WHEN 'A' THEN 'Human Necessities'
-            WHEN 'B' THEN 'Operations & Transport'
-            WHEN 'C' THEN 'Chemistry & Metallurgy'
-            WHEN 'D' THEN 'Textiles'
-            WHEN 'E' THEN 'Construction'
-            WHEN 'F' THEN 'Mechanical Engineering'
-            WHEN 'G' THEN 'Physics'
-            WHEN 'H' THEN 'Electricity'
-            WHEN 'Y' THEN 'Emerging Technologies'
-            ELSE 'Other'
-        END as section_description,
-        COUNT(DISTINCT main_class) as unique_classes,
-        SUM(patent_count) as total_patents,
-        ROUND(SUM(patent_count) / (SELECT COUNT(*) FROM `{project_id}.{dataset_id}.{publication_table}`) * 100, 1) as percentage
-        FROM cpc_main_classes
-        GROUP BY main_section, section_description
-        ORDER BY total_patents DESC;
+    WITH patent_sections AS (
+    SELECT 
+        publication_number,
+        SUBSTR(cpc_code, 1, 1) AS main_section
+    FROM `{project_id}.{dataset_id}.{publication_table}`,
+    UNNEST(cpc_codes) AS cpc_code
+    
+    UNION DISTINCT
+    
+    SELECT 
+        publication_number,
+        'Other' as main_section
+    FROM `{project_id}.{dataset_id}.{publication_table}`
+    WHERE ARRAY_LENGTH(cpc_codes) = 0 OR cpc_codes IS NULL
+    ), describe_sections AS (
+    SELECT 
+    main_section,
+    CASE main_section
+        WHEN 'A' THEN 'Human Necessities'
+        WHEN 'B' THEN 'Operations & Transport'
+        WHEN 'C' THEN 'Chemistry & Metallurgy'
+        WHEN 'D' THEN 'Textiles'
+        WHEN 'E' THEN 'Construction'
+        WHEN 'F' THEN 'Mechanical Engineering'
+        WHEN 'G' THEN 'Physics'
+        WHEN 'H' THEN 'Electricity'
+        WHEN 'Y' THEN 'Emerging Technologies'
+        ELSE 'Other'
+    END AS section_description,
+    COUNT(DISTINCT publication_number) AS unique_patents
+    FROM patent_sections
+    GROUP BY main_section
+    )
+    SELECT
+    main_section,
+    section_description,
+    unique_patents,
+    ROUND(unique_patents / (SELECT SUM(unique_patents) FROM describe_sections) * 100, 1) as section_patent_percentage
+    FROM describe_sections
+    ORDER BY section_patent_percentage DESC
 """
 
 # Patent publication flow
@@ -304,39 +312,47 @@ patent_flow = """
 
 # Technology convergence
 tech_convergence = """
-            -- Fetch the first letter to keep it simpler
-            WITH cpc_combinations AS (
-                SELECT
-                    EXTRACT(YEAR FROM pub_date) as year,
-                    ARRAY_TO_STRING(ARRAY(
-                        SELECT DISTINCT SUBSTR(cpc, 1, 1) as cpc_class
-                        FROM UNNEST(cpc_codes) as cpc
-                        ORDER BY cpc_class
-                    ), ',') as cpc_combo,
-                    COUNT(*) patent_count
-                FROM `{project_id}.{dataset_id}.{publication_table}`
-                WHERE ARRAY_LENGTH(cpc_codes) >= 2
-                GROUP BY year, cpc_combo
-                HAVING patent_count >= 100 -- High threshold
-            )
-            SELECT 
-            cpc_combo,
-            CASE cpc_combo
-                WHEN 'G,H' THEN 'Physics + Electricity'
-                WHEN 'G,Y' THEN 'Physics + Emerging Tech'
-                WHEN 'H,Y' THEN 'Electricity + Emerging Tech'
-                WHEN 'A,C' THEN 'Human Needs + Chemistry'
-                WHEN 'B,G' THEN 'Transport + Physics'
-                ELSE 'Other' END cpc_combo_label,
-            ROUND(AVG(patent_count)) as avg_recent_patents,
-            MAX(patent_count) as peak_patents,
-            COUNT(DISTINCT year) as years_with_data
-            FROM cpc_combinations  
-            -- WHERE year >= 2020
-            WHERE ARRAY_LENGTH(SPLIT(cpc_combo, ',')) >= 2  -- Filter for actual combinations
-            GROUP BY cpc_combo
-            ORDER BY avg_recent_patents DESC
-            LIMIT {top_n}
+  -- Focus on main section - i.e., first letter of cpc
+  WITH cpc_combinations AS (
+      SELECT
+          EXTRACT(YEAR FROM pub_date) as year,
+          ARRAY_TO_STRING(ARRAY(
+              SELECT DISTINCT SUBSTR(cpc, 1, 1) as main_section
+              FROM UNNEST(cpc_codes) as cpc
+              ORDER BY main_section
+          ), ',') as cpc_combo,
+          COUNT(*) patent_count
+      FROM `{project_id}.{dataset_id}.{publication_table}`
+      WHERE ARRAY_LENGTH(cpc_codes) >= 2
+      GROUP BY year, cpc_combo
+      HAVING patent_count >= 5000 -- High threshold
+  )
+  SELECT 
+  cpc_combo,
+  CASE cpc_combo
+      WHEN 'A,G' THEN 'Healthcare + Computing/AI'
+      WHEN 'A,C' THEN 'Healthcare + Pharmaceuticals'
+      WHEN 'B,G' THEN 'Manufacturing + Computing/AI'
+      WHEN 'B,C' THEN 'Manufacturing + Materials Science'
+      WHEN 'B,F' THEN 'Manufacturing + Mechanical Systems'
+      WHEN 'B,Y' THEN 'Manufacturing + Clean Technology'
+      WHEN 'C,G' THEN 'Chemistry + Computing/AI'
+      WHEN 'C,Y' THEN 'Chemistry + Clean Technology'
+      WHEN 'F,G' THEN 'Mechanical + Computing/AI'
+      WHEN 'G,H' THEN 'Computing/AI + Electronics'
+      WHEN 'G,Y' THEN 'Computing/AI + Emerging Tech'
+      WHEN 'H,Y' THEN 'Battery Storage + Emerging Tech'
+      WHEN 'F,Y' THEN 'Mechanical + Clean Technology'
+      ELSE 'Other' END cpc_combo_label,
+  ROUND(AVG(patent_count)) as avg_recent_patents,
+  MAX(patent_count) as peak_patents,
+  COUNT(DISTINCT year) as years_with_data
+  FROM cpc_combinations  
+  -- WHERE year >= 2020
+  WHERE ARRAY_LENGTH(SPLIT(cpc_combo, ',')) >= 2  -- Filter for actual combinations
+  GROUP BY cpc_combo
+  ORDER BY avg_recent_patents DESC
+  LIMIT {top_n}
 """
 
 # Fetch patents for a given date range"""
