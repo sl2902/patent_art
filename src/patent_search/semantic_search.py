@@ -221,7 +221,7 @@ class PatentSemanticSearch:
     def explain_via_sentence_similarity(
         self,
         model: SentenceTransformer, 
-        query_text: str, 
+        query_embedding: List[float], 
         candidate_title: str, 
         candidate_abstract: str,
         threshold: float = 0.3
@@ -236,7 +236,6 @@ class PatentSemanticSearch:
         if not sentences:
             return [{"sentence": "No meaningful sentences found", "similarity": 0.0}]
         
-        query_embedding = model.encode([query_text], show_progress_bar=False)
         sentence_embeddings = model.encode(sentences, show_progress_bar=False)
 
         similarities = cosine_similarity(query_embedding, sentence_embeddings)[0]
@@ -270,10 +269,12 @@ class PatentSemanticSearch:
         """
         explanations = []
 
+        query_embedding = model.encode([query_text], show_progress_bar=False)
+
         for row in candidate_df.itertuples(index=False):
             sentence_explanations = self.explain_via_sentence_similarity(
                 model,
-                query_text,
+                query_embedding,
                 row.title_en,
                 row.abstract_en,
                 threshold=0.3,
